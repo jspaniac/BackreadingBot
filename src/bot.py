@@ -1,5 +1,4 @@
-import os, json, random, time, datetime, requests, asyncio, re, traceback
-from tkinter import E
+import os, json, time, datetime, requests, asyncio, re, traceback
 from datetime import time
 import discord
 from discord.ext import commands, tasks
