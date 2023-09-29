@@ -1,6 +1,7 @@
 import discord
 import asyncio
 import csv
+
 from exceptions import (
     TimeoutError, InvalidResponse
 )
@@ -27,19 +28,22 @@ def dm_check(message, ctx):
     return (message.author == ctx.author and
             isinstance(message.channel, discord.DMChannel))
 
-def reaction_check(message, admin, reaction, user):
+def reaction_check(message, admin, reaction, user, valid_reactions):
     """
+    Checks if the 'reaction' was applied on 'message', if the 'user' that reacted is the
+    same as the bot's 'admin' and if the emoji reacted is a valid one (check or x)
     """
     emoji = str(reaction.emoji)
     return (reaction.message.id == message.id and user.id == admin.id and
-           (emoji == GREEN_CHECK or emoji == RED_X))
+           (emoji in valid_reactions))
 
-async def send_message(channel, message, embed=None):
+async def send_message(channel, message, embed=None, files=None):
     """
     Sends the 'message' to 'channel' using embed format
     """
     return await channel.send(
-        embed=embed if embed else discord.Embed(description=message)
+        embed=embed if embed else discord.Embed(description=message),
+        files=files
     )
 
 async def repeat_request(bot, auth_check, valid_check, timeout, send_invalid_message):
@@ -58,27 +62,30 @@ async def repeat_request(bot, auth_check, valid_check, timeout, send_invalid_mes
         await send_invalid_message()
         return await repeat_request(bot, auth_check, valid_check, timeout, send_invalid_message)
 
-async def y_n_emoji(bot, respond_function, respond_message, admin, timeout):
+async def y_n_emoji(bot, respond_function, question, admin, timeout):
     """
+    Sends a yes or no reaction message for 'question' via 'respond_function' and returns whether or not the
+    reaction response was a check reacted by 'admin'. 'timeout' is how long the bot will wait for a response
     """
-    embed = discord.Embed(title="Yes or no?", description=respond_message)
+    embed = discord.Embed(title="Yes or no?", description=question)
     message = await respond_function(embed=embed)
 
     await message.add_reaction(GREEN_CHECK)
     await message.add_reaction(RED_X)
 
-    def reaction_check(reaction, user):
-        emoji = str(reaction.emoji)
-        return (reaction.message.id == message.id and user.id == admin.id and
-               (emoji == GREEN_CHECK or emoji == RED_X))
+    def y_n_reaction_check(reaction, user):
+        return reaction_check(message, admin, reaction, user, {GREEN_CHECK, RED_X})
 
     try:
-        reaction, _ = await bot.wait_for(event='reaction_add', check=reaction_check, timeout=timeout)
+        reaction, _ = await bot.wait_for(event='reaction_add', check=y_n_reaction_check, timeout=timeout)
         return str(reaction.emoji) == GREEN_CHECK
     except asyncio.TimeoutError:
         raise TimeoutError
 
 def invert_csv(csv_file):
+    """
+    Reads in a csv file and creates a dictionary of the first two columns inverted
+    """
     id_to_ta = {}
     for line in csv_file.splitlines():
         values = line.split(',')
@@ -86,12 +93,20 @@ def invert_csv(csv_file):
     return id_to_ta
 
 def write_csv(file_path, header, data):
+    """
+    Writes the information provided via 'data' with the given 'header' to the csv file located
+    at 'file_path'
+    """
     with open(file_path, 'w') as csvfile:
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(header)
         csvwriter.writerows(data)
 
 def convert_csv_to_html(csv_file, html_file):
+    """
+    Converts the given csv consistency file to an html one formatted appropriately for an
+    Ed post
+    """
     with open('output.csv', newline='\n') as csv_file:
         rows = []
         one = False
@@ -109,5 +124,9 @@ def convert_csv_to_html(csv_file, html_file):
             output_file.write(HTML_STYLE + output)
 
 def progress_bar(current, total):
+    """
+    Returns an appropraite progress bar message consisting of squares based on the 'total' things
+    to do, and the 'current' things done
+    """
     empty = int(BAR_SIZE * (current / total))
     return (FULL_SQUARE * (empty)) + (EMPTY_SQUARE * (BAR_SIZE - empty))

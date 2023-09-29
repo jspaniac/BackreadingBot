@@ -2,11 +2,12 @@ import discord
 import logging
 import re
 import requests
+
 from utils import (
     send_message, repeat_request, dm_check, correct_user_check, y_n_emoji
 )
 from constants import (
-    TIMEOUT, LOGGING_FILE, ASSIGNMENT_GRACE_MINUTES, THREAD_NAME, THREAD_LINK,
+    TIMEOUT, LOGGING_FILE, ASSIGNMENT_GRACE_MINUTES, THREAD_LINK,
 )
 from exceptions import (
     TimeoutError, InvalidResponse
@@ -14,6 +15,7 @@ from exceptions import (
 
 from ed_helper import EdHelper
 from datetime import datetime
+from database import GuildInfo
 
 logging.basicConfig(filename=LOGGING_FILE, encoding='utf-8', level=logging.INFO)
 
@@ -24,43 +26,86 @@ class DiscordRegex:
 class DiscordHelper:
     @staticmethod
     def get_attachment(url):
+        """
+        Params: 'url' - The url corresponding to a discord attachment
+        Returns: The discord attachment for the given attachment url
+        """
         return requests.get(url).content.decode('utf-8') if url else None
 
     @staticmethod
     async def create_channel(guild, name, overwrites):
+        """
+        Params: 'guild' - The guild in which to create a channel
+                'name' - The channel name
+                'overwrites' - The appropriate overwrites for the channel (found via discord API)
+        Returns: The channel id for the newly created channel
+        """
         return (await guild.create_text_channel(name, overwrites=overwrites)).id
     
     @staticmethod
     async def create_thread(channel, starting_message, thread_name):
+        """
+        Params: 'channel' - The channel in which to create the thread
+                'starting_message' - The starting message to created the thread off of
+                'thread_name' - The name of the thread
+        Returns: The newly created discord thread
+        """
         message = await send_message(channel, starting_message)
         return await message.create_thread(thread_name)
 
     @staticmethod
     async def get_role(guild, role_id):
+        """
+        Params: 'guild' - The guild in which the role is
+                'role_id' - The role ID to get
+        Returns: The role object corresponding to the given role ID
+        """
         return discord.utils.get(guild.roles, id=role_id)
     
     @staticmethod
+    async def get_thread(guild, thread_id):
+        """
+        Params: 'guild' - The guild in which the role is
+                'thread_id' - The thread ID to get
+        Returns: The thread object corresponding to the given thread ID
+        """
+        return discord.utils.get(guild.threads, id=thread_id)
+    
+    @staticmethod
     async def resolve_thread(bot, thread, database, guild_id, thread_id, final_message):
+        """
+        Resolves the given thread, sending a final message and removing it from the database
+
+        Params: 'bot' -
+                'thread' - The discord thread object to archive
+                'database' - The bot's database
+                'guild_id' - The ID of the guild where the thread is being archived
+                'thread_id' - The Ed ID of the thread being archived
+                'final_message' - The final message to send to the thread
+        """
         logging.debug(f"Resolving thread {thread}")
-        # Send final message
+
         await send_message(thread, final_message)
-        # Archive thread
         await thread.archive()
-        # Remove thread from guild_info
         database.remove_thread(guild_id, thread_id)
-        # Delete starting message
-        channel = bot.get_channel(database.get_channel(guild_id))
-        await (await channel.fetch_message(thread.id)).delete()
+
+        # TODO: Don't think we want to fully delete the old message, just archive the thread
+        # channel = bot.get_channel(database.get_channel(guild_id))
+        # await (await channel.fetch_message(thread.id)).delete()
 
     @staticmethod
     async def _get_token(bot, respond_dm):
         """
+        Gets the users Ed API token via repeat request. Raises TimeoutError if the user request times out
+
+        Params: 'bot' - The discord bot object
+                'respond_dm' - A method that will send a given string as a DM to the user
+        Returns: The API token, Ed user object
         """
         async def invalid_wrapper():
-            """
-            """
             await respond_dm("""Error with the provided ed token. Please try again""")
 
+        logging.info("Getting Ed API token from user")
         try:
             token, user = await repeat_request(bot, dm_check, EdHelper.check_token, TIMEOUT, invalid_wrapper)
             logging.debug(f"Successfully retrived valid ed token {token}, username {user['name']}")
@@ -74,17 +119,22 @@ class DiscordHelper:
     @staticmethod
     async def _get_course(bot, respond_public_channel, ed_user, discord_user):
         """
+        Gets the appropriate Ed staff course URL via repeat request. Raises TimeoutError if the user request
+        times out
+
+        Params: 'bot' - The discord bot object
+                'respond_public_channel' - A method that will send a given string as a message to a public channel
+                'ed_user' - The ed user object retrieved via the user's API token
+                'discord_user' - The requesters discord user object
+        Returns: The course URL, Ed course object
         """
         async def invalid_wrapper():
-            """
-            """
             await respond_public_channel("""No valid ed course found for that link. Please try again""")
 
         async def check_course_wrapper(url):
-            """
-            """
             return EdHelper.valid_course_for_user(url, ed_user)
 
+        logging.info("Getting Ed course information from user")
         while True:
             url, course = await repeat_request(bot, correct_user_check, check_course_wrapper, TIMEOUT, invalid_wrapper)
             logging.debug(f"Successfully retrieved course from url {url}, name {course['code']}")
@@ -93,27 +143,30 @@ class DiscordHelper:
                 f"""The course you provided is named {course['code']}, is this correct?""",
                 discord_user, TIMEOUT
             ):
-                return course
+                return url, course
             else:
                 respond_public_channel("""Then please enter the correct link 💅""")
     
     @staticmethod
     async def _get_role(bot, respond_public_channel, roles):
         """
+        Gets the backreading role to ping via repeat request. Raises TimeoutError if the user request times out
+
+        Params: 'bot' - The discord bot object
+                'respond_public_channel' - A method that will send a given string as a message to a public channel
+                'roles' - A collection of all available roles within the discord server
+        Returns: The role name, and discord role object
         """
         async def invalid_wrapper():
-            """
-            """
             await respond_public_channel("""""Role with provided name does not exist. Please re-enter""")
         
         async def valid_role_check(role):
-            """
-            """
             role = discord.utils.get(roles, name=role)
             if role is None:
                 raise InvalidResponse
             return role
 
+        logging.info("Getting discord role from user")
         role_name, role = await repeat_request(bot, correct_user_check, valid_role_check, TIMEOUT, invalid_wrapper)
         logging.debug(f"Successfully retrieved role with id {role.id} from name {role_name}")
         return role_name, role
@@ -121,6 +174,11 @@ class DiscordHelper:
     @staticmethod
     async def setup_bot(ctx, database, bot):
         """
+        Sets up the bot, gather necessary information from the user and storing it with the bot's database
+
+        Params: 'ctx' - THe original request context
+                'database' - The bot's database
+                'bot' - The discord bot object
         """
         requester = discord.utils.get(ctx.guild.members, id=user)
         async def respond_dm(message):
@@ -151,7 +209,7 @@ class DiscordHelper:
             await respond_public_channel("""Now, provide the url of the discussion board for the ed course
                     you wish the bot to connect to"""
             )
-            course = await DiscordHelper._get_course(bot, respond_public_channel, ed_user, ctx.author)
+            url, course = await DiscordHelper._get_course(bot, respond_public_channel, ed_user, ctx.author)
 
             # 4. Get backreading role for pings
             logging.info("Retrieving backreading role")
@@ -174,32 +232,39 @@ class DiscordHelper:
             channel_id = DiscordHelper.create_channel(ctx.guild, 'backread-requests', overwrites)
             
             # 7. Store it into the map that will be loaded into the json on shutdown
-            database.register(str(ctx.guild.id), GuildInfo(user, channel_id, token, course['id'], role.id, approval))
-            database.save()
+            database.register(str(ctx.guild.id), GuildInfo.create(user, channel_id, token, course['id'], role.id, approval))
 
             await send_message(ctx.channel, f"Congrats! Your backreading bot is setup and running!")
         except TimeoutError:
             logging.debug("Request timed out")
+            respond_public_channel("Request timed out")
         except Exception as e:
             logging.exception(e)
     
     @staticmethod
     async def stop_bot(ctx, database):
         """
+        Stops the bot from running on the on the server where the ctx was sent
+
+        Params: 'ctx': The request message context
+                'database': The bot's database
         """
         guild_id = ctx.guild.id
         await discord.utils.get(ctx.guild.text_channels, id=database.get_channel(guild_id)).delete()
         database.delete(guild_id)
-
         await send_message(ctx.channel, "Backreading bot stopped")
     
     @staticmethod
     async def push_ed_response(ctx, database, bot, thread):
         """
+        Pushes a grading question response from discord to Ed
+
+        Params: 'ctx': The request message context
+                'database': The bot's database
+                'bot': The discord bot object
+                'thread': The discord thread object containing the response
         """
         async def respond_thread(message):
-            """
-            """
             await send_message(ctx.channel, message)
 
         guild_id = ctx.guild.id
@@ -218,19 +283,27 @@ class DiscordHelper:
         to_push = (await thread.fetch_message(ctx.message.reference.message_id)).content
         course_thread_ids = EdHelper.get_ids(starting_message.embeds[0].url)
         if ed_helper.push_answer(course_thread_ids[1], to_push):
-            await DiscordHelper.resolve_thread(bot, thread, database, ctx.guild.id, int(course_thread_ids[1]), "Pushed to Ed!")
+            await DiscordHelper.resolve_thread(bot, thread, database, ctx.guild.id, course_thread_ids[1], "Pushed to Ed!")
         else:
             await send_message(ctx.channel, "Issue in pushing to Ed")
 
     @staticmethod
     def _format_backreading_embed(thread, course_id, simple=False):
+        """
+        Creates and formats a discord embed that contains relevant information on backread requests
+
+        Params: 'thread' - The ed thread object of the request
+                'course_id' - The Ed course ID
+                'simple' - Whether or not the time and message description should be added
+        Returns: A properly formatted discord embed
+        """
         time = EdHelper.parse_datetime(thread['created_at'])
         if simple:
-            return discord.Embed(title=THREAD_NAME.format(author=thread['user']['name'], title=thread['title']),
+            return discord.Embed(title=f"{thread['user']['name']}: {thread['title']}",
                                  url=THREAD_LINK.format(course_id=course_id, thread_id=thread['id']))
         else:
             # Replace the link for FERPA reasons
-            embed = discord.Embed(title=THREAD_NAME.format(author=thread['user']['name'], title=thread['title']),
+            embed = discord.Embed(title=f"{thread['user']['name']}: {thread['title']}",
                                   url=THREAD_LINK.format(course_id=course_id, thread_id=thread['id']),
                                   description=re.sub(DiscordRegex.URL_REGEX, "Link on original post [removed for FERPA]", thread['document']),
                                   timestamp=time)
@@ -239,6 +312,13 @@ class DiscordHelper:
 
     @staticmethod
     async def refresh_threads(guild_id, database, bot):
+        """
+        Refreshes backreading threads for the given guild
+
+        Params: 'guild_id' - The ID of the guild to refresh
+                'database' - The bot's database
+                'bot' - The discord bot object
+        """
         # jic it's needed: 'filter': 'unanswered'
         guild = await bot.fetch_guild(int(guild_id))
         channel = await bot.fetch_channel(database.get_channel(guild_id))
@@ -287,3 +367,4 @@ class DiscordHelper:
 
             # Add thread id to guild_info
             database.add_thread(guild_id, thread_id, created_thread.id)
+            logging.info(f"Thread created for guild {guild}")

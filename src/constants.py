@@ -1,26 +1,27 @@
 import os
 
+# Various files and directories
 STORAGE_DIR = '../store'
+TEMP_DIR = '../temp'
 LOGGING_FILE = os.path.join(STORAGE_DIR, 'logging', 'base.log')
 DB_FILE = os.path.join(STORAGE_DIR, 'database.json')
 AUTH_FILE = os.path.join(STORAGE_DIR, 'auth.json')
 
-TEMP_DIR = '../temp'
-
-TIMEOUT = 45.
+TIMEOUT = 45.0
 REFRESH_DELAY = 0
-THREAD_LIMIT = 40
-MESSAGE_DEPTH = 100
 
-THREAD_NAME = "{author}: {title}"
+# Viewable Ed link
 THREAD_LINK = 'https://edstem.org/us/courses/{course_id}/discussion/{thread_id}'
 
+# Misc symbols
 GREEN_CHECK = "\U00002705"
 RED_X = "\U0000274c"
-
 EMPTY_SQUARE = "□"
 FULL_SQUARE = "■"
+
+# Progress bar constants
 BAR_SIZE = 40
 PROGRESS_UPDATE_MULTIPLE = 50
 
-ASSIGNMENT_GRACE_MINUTES= 15
+# What the assignment due time grace period is
+ASSIGNMENT_GRACE_MINUTES = 15
