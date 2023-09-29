@@ -152,5 +152,4 @@ async def close():
 #-------------------------------------------------------------------------------------------------------------------#
 # START BOT
 
-auth = json.load(open(AUTH_FILE))
-bot.run(auth['token'])
+bot.run(json.load(open(AUTH_FILE))['token'])
