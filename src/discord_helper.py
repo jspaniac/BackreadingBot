@@ -232,7 +232,7 @@ class DiscordHelper:
             channel_id = DiscordHelper.create_channel(ctx.guild, 'backread-requests', overwrites)
             
             # 7. Store it into the map that will be loaded into the json on shutdown
-            database.register(str(ctx.guild.id), GuildInfo.create(user, channel_id, token, course['id'], role.id, approval))
+            database.register(ctx.guild.id, GuildInfo.create(user, channel_id, token, course['id'], role.id, approval))
 
             await send_message(ctx.channel, f"Congrats! Your backreading bot is setup and running!")
         except TimeoutError:
