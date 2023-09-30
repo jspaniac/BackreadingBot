@@ -4,10 +4,10 @@ import requests
 import datetime
 
 from constants import (
-    LOGGING_FILE, THREAD_LIMIT
+    LOGGING_FILE
 )
 from exceptions import (
-    InvalidResponse
+    InvalidResponse, InvalidEdToken
 )
 
 logging.basicConfig(filename=LOGGING_FILE, encoding='utf-8', level=logging.INFO)
@@ -43,17 +43,21 @@ class EdHelper:
     """
     def __init__(self, token):
         """
-        Constructs a new ed helper instance from the given API token.
+        Constructs a new ed helper instance from the given API token. If the given token is invalid,
+        raises InvalidEdToken
         
         Params: 'token' - The Ed API token to use with requests
         """
-        self.token = token
+        try:
+            EdHelper.valid_token(token)
+            self.token = token
+        except InvalidResponse:
+            raise InvalidEdToken
     
-    def push_answer(self, ed_url, answer):
+    def push_answer(self, thread_id, answer):
         """
         """
-        thread_id = EdHelper.get_course_thread_ids(ed_url)[1]
-        logging.info(f"Pusing answer to {thread_id}")
+        logging.info(f"Pushing answer to {thread_id}")
         payload = {
             'comment': {'type': 'answer',
             'content': f"<document version=\"2.0\"><paragraph>{answer}</paragraph></document>",
@@ -61,9 +65,22 @@ class EdHelper:
             'is_anonymous': False}
         }
         response = post_payload(EdConstants.POST_REQUEST.format(thread_id=thread_id), self.token, payload)
-
+        logging.info(response)
         # Don't wrap since ed doesn't give a response for accepting an answer
+        
         requests.post(EdConstants.ACCEPT_REQUEST.format(comment_id=response['comment']['id']), headers={'x-token': self.token})
+    
+    def valid_course(self, url):
+        """
+        Returns if the course represented by the given url is valid for the initial auth token
+        """
+        courses = EdHelper.valid_token(self.token)['courses']
+        if EdRegex.COURSE_PATTERN.fullmatch(url):
+            course_id = int(EdHelper.get_ids(url)[0])
+            for course in courses:
+                if course['course']['id'] == course_id:
+                    return course['course']
+        raise InvalidResponse
     
     def get_threads(self, course_id):
         """
@@ -117,22 +134,20 @@ class EdHelper:
         'milliseconds' is whether or not the given time contains milliseconds
         """
         splitted = time.rsplit(':', 1)
-        datetime_format = EdConstants.DATETIME_FORMAT.replace('.', '') if milliseconds else EdConstants.DATETIME_FORMAT
+        # datetime_format = EdConstants.DATETIME_FORMAT.replace('.', '') if milliseconds else EdConstants.DATETIME_FORMAT
         return datetime.datetime.strptime(
-            splitted[0] + splitted[1], datetime_format)
-
+            splitted[0] + splitted[1], EdConstants.DATETIME_FORMAT)
+    
     @staticmethod
-    async def valid_course_for_user(url, user):
+    def valid_token(token):
         """
-        Returns if the course represented by the given url is present with the Ed user object's courses
+        If the given token is valid, returns the corresponding ed user object.
+        Otherwise raises InvalidResponse
         """
-        if EdRegex.COURSE_PATTERN.fullmatch(url):
-            course_id = int(EdHelper.get_ids(url)[0])
-            for course in user['courses']:
-                course = course['course']
-                if course['id'] == course_id:
-                    return course
-        raise InvalidResponse
+        try:
+            return get_response(EdConstants.USER_REQUEST, token)
+        except:
+            raise InvalidResponse
     
     @staticmethod
     def valid_assignment_url(url):

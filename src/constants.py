@@ -8,7 +8,8 @@ DB_FILE = os.path.join(STORAGE_DIR, 'database.json')
 AUTH_FILE = os.path.join(STORAGE_DIR, 'auth.json')
 
 TIMEOUT = 45.0
-REFRESH_DELAY = 0
+REFRESH_DELAY = 5
+PULL_DELAY = 5
 
 # Viewable Ed link
 THREAD_LINK = 'https://edstem.org/us/courses/{course_id}/discussion/{thread_id}'

@@ -21,3 +21,8 @@ class GuildNotFound(Exception):
     An exception for when the guild doesn't exist within the bot database
     """
     pass
+
+class InvalidEdToken(Exception):
+    """
+    An exception for when the provided Ed API token isn't valid
+    """

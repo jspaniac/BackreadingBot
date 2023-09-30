@@ -28,7 +28,7 @@ class Database:
             self.guild_to_info = json.load(open(file_path))
             self.db_file = file_path
         except:
-            raise DBFileNotFound
+            raise DBFileNotFound("Database file cannot be found, unable to create/load database")
 
     def __contains__(self, guild_id):
         """
@@ -48,8 +48,8 @@ class Database:
         Helper method that returns the guild info for a given guild_id. Note that the id can be
         an int or str
         """
-        if guild_id not in self.guild_to_info:
-            raise GuildNotFound
+        if str(guild_id) not in self.guild_to_info:
+            raise GuildNotFound(f"Guild ID {guild_id} not present in the database")
         return self.guild_to_info.get(str(guild_id))
 
     def get_admin(self, guild_id):
@@ -120,14 +120,14 @@ class Database:
         del self.guild_to_info[str(guild_id)]
         self.save()
 
-    def remove_thread(self, guild_id, thread_id):
+    def remove_thread(self, guild_id, ed_id):
         """
         Removes a thread from the set of imported threads within the database
         
         Params: 'guild_id' - The guild ID
-                'thread_id' - The Ed thread ID to delete
+                'ed_id' - The Ed thread ID to delete
         """
-        self.get_threads(guild_id).pop(int(thread_id))
+        self.get_threads(guild_id).pop(str(ed_id))
         self.save()
     
     def add_thread(self, guild_id, ed_id, discord_id):
@@ -135,7 +135,8 @@ class Database:
         Adds a thread from the set of imported threads within the database
         
         Params: 'guild_id' - The guild ID
-                'thread_id' - The Ed thread ID to add
+                'ed_id' - The Ed thread ID to add
+                'discord_id' - The discord thread ID to add
         """
         self.get_threads(guild_id)[str(ed_id)] = int(discord_id)
         self.save()
@@ -148,7 +149,7 @@ class Database:
         try:
             open(self.db_file, "w").write(json.dumps(self.guild_to_info))
         except:
-            raise DBFileNotFound
+            raise DBFileNotFound("Original database file can't be found, unable to save")
 
 class GuildInfo:
     @staticmethod

@@ -37,14 +37,14 @@ def reaction_check(message, admin, reaction, user, valid_reactions):
     return (reaction.message.id == message.id and user.id == admin.id and
            (emoji in valid_reactions))
 
-async def send_message(channel, message, embed=None, files=None):
+async def send_message(channel, message, files=None):
     """
     Sends the 'message' to 'channel' using embed format
     """
-    return await channel.send(
-        embed=embed if embed else discord.Embed(description=message),
+    return (await channel.send(
+        embed=message if isinstance(message, discord.Embed) else discord.Embed(description=message),
         files=files
-    )
+    ))
 
 async def repeat_request(bot, auth_check, valid_check, timeout, send_invalid_message):
     """
@@ -68,7 +68,7 @@ async def y_n_emoji(bot, respond_function, question, admin, timeout):
     reaction response was a check reacted by 'admin'. 'timeout' is how long the bot will wait for a response
     """
     embed = discord.Embed(title="Yes or no?", description=question)
-    message = await respond_function(embed=embed)
+    message = await respond_function(embed)
 
     await message.add_reaction(GREEN_CHECK)
     await message.add_reaction(RED_X)
@@ -77,7 +77,7 @@ async def y_n_emoji(bot, respond_function, question, admin, timeout):
         return reaction_check(message, admin, reaction, user, {GREEN_CHECK, RED_X})
 
     try:
-        reaction, _ = await bot.wait_for(event='reaction_add', check=y_n_reaction_check, timeout=timeout)
+        reaction, _ = await bot.wait_for('reaction_add', check=y_n_reaction_check, timeout=timeout)
         return str(reaction.emoji) == GREEN_CHECK
     except asyncio.TimeoutError:
         raise TimeoutError

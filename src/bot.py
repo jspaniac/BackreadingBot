@@ -35,11 +35,11 @@ async def br_setup(ctx):
                     wish to reset the bot or reconfigure, try 'backreading-reset' instead!""")
             return
 
-        DiscordHelper.setup_bot(ctx, database, bot)
+        await DiscordHelper.setup_bot(ctx, database, bot)
         logging.info(f"Successfully added {ctx.guild.id} to bot database")
     except Exception as e:
         logging.exception(e)
-        send_message(ctx.channel, f"Error encountered when handling request: {e}")
+        await send_message(ctx.channel, f"Error encountered when handling request: {e}")
 
 @bot.command(name='br-stop', help="Stops the backreading functionality of the bot, removing all data stored")
 async def br_stop(ctx):
@@ -50,11 +50,11 @@ async def br_stop(ctx):
             await send_message(ctx.channel, "Backreading bot not setup for this server, nothing to stop")
             return
 
-        DiscordHelper.stop_bot(ctx, database)
+        await DiscordHelper.stop_bot(ctx, database)
         logging.info(f"Successfully removed {ctx.guild.id} from bot database")
     except Exception as e:
         logging.exception(e)
-        send_message(ctx.channel, f"Error encountered when handling request: {e}")
+        await send_message(ctx.channel, f"Error encountered when handling request: {e}")
 
 @bot.command(name='br-push', help="Reply to the agreed on answer with this command to push it to ed")
 async def br_push(ctx):
@@ -71,11 +71,11 @@ async def br_push(ctx):
             await send_message(ctx.channel, "This command can only be used in a thread started by the intructor-bot")
             return
         
-        DiscordHelper.push_ed_response(ctx, database, bot, thread)
+        await DiscordHelper.push_ed_response(ctx, database, bot, thread)
         logging.info(f"Successfully pushed response from {ctx.channel}")
     except Exception as e:
         logging.exception(e)
-        send_message(ctx.channel, f"Error encountered when handling request: {e}")
+        await send_message(ctx.channel, f"Error encountered when handling request: {e}")
 
 @bot.command(name='br-pull', help="Pulls new threads from ed")
 async def br_pull(ctx):
@@ -85,11 +85,12 @@ async def br_pull(ctx):
             logging.info(f"{ctx.guild.id} not registered in database, returning")
             return
 
-        DiscordHelper.refresh_threads(ctx.guild.id, database, bot)
+        await DiscordHelper.refresh_threads(ctx.guild.id, database, bot)
+        await send_message(ctx.channel, "Refreshed!")
         logging.info(f"Successfully refreshed backreading threads for {ctx.guild.id}")
     except Exception as e:
         logging.exception(e)
-        send_message(ctx.channel, f"Error encountered when handling request: {e}")
+        await send_message(ctx.channel, f"Error encountered when handling request: {e}")
 
 @bot.command(name='gr-check', help="""Checks to see if TAs are done grading. Call with submissions link. Optional
                                       attachment: .csv grading spreadsheet""")
@@ -103,11 +104,11 @@ async def gr_check(ctx, submission_link):
         attachment_url = ctx.message.attachments[0].url if ctx.message.attachments else None
         ed_helper = EdHelper(database.get_token(ctx.guild.id))
 
-        ConsistencyChecker.check_ungraded(ed_helper, ctx.channel, submission_link, attachment_url)
+        await ConsistencyChecker.check_ungraded(ed_helper, ctx.channel, submission_link, attachment_url)
         logging.info(f"Successfully checked grading completion for {ctx.guild.id}")
     except Exception as e:
         logging.exception(e)
-        send_message(ctx.channel, f"Error encountered when handling request: {e}")
+        await send_message(ctx.channel, f"Error encountered when handling request: {e}")
 
 @bot.command(name='gr-consistency', help="""Checks the consistency of grading. Call with the submission link.
                                             Optional 2nd arg: whether or not a template is used. Optional attachment:
@@ -122,11 +123,11 @@ async def gr_consistency(ctx, submission_link, template: bool = False):
         attachment_url = ctx.message.attachments[0].url if ctx.message.attachments else None
         ed_helper = EdHelper(database.get_token(ctx.guild.id))
 
-        ConsistencyChecker.check_consistency(ed_helper, ctx.channel, submission_link, attachment_url, template)
+        await ConsistencyChecker.check_consistency(ed_helper, ctx.channel, submission_link, attachment_url, template)
         logging.info(f"Successfully completed consistency check for {ctx.guild.id}")
     except Exception as e:
         logging.exception(e)
-        send_message(ctx.channel, f"Error encountered when handling request: {e}")
+        await send_message(ctx.channel, f"Error encountered when handling request: {e}")
 
 #-------------------------------------------------------------------------------------------------------------------#
 # START EVENTS
@@ -140,7 +141,7 @@ async def on_connect():
 async def pull_threads():
     try:
         for guild_id in database.guild_ids():
-            await DiscordHelper.refresh_threads(guild_id)
+            await DiscordHelper.refresh_threads(guild_id, database, bot)
     except Exception as e:
         logging.exception(e)
 
