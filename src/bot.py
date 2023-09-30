@@ -31,8 +31,8 @@ async def br_setup(ctx):
     try:
         if ctx.guild.id in database:
             logging.info(f"{ctx.guild.id} already registered in database, returning")
-            await send_message(ctx.channel, """Backreading bot already setup in this server. If you
-                    wish to reset the bot or reconfigure, try 'backreading-reset' instead!""")
+            await send_message(ctx.channel, ("Backreading bot already setup in this server. If you wish " + 
+                                             "to reset the bot or reconfigure, try 'backreading-reset' instead!"))
             return
 
         await DiscordHelper.setup_bot(ctx, database, bot)
@@ -92,8 +92,8 @@ async def br_pull(ctx):
         logging.exception(e)
         await send_message(ctx.channel, f"Error encountered when handling request: {e}")
 
-@bot.command(name='gr-check', help="""Checks to see if TAs are done grading. Call with submissions link. Optional
-                                      attachment: .csv grading spreadsheet""")
+@bot.command(name='gr-check', help=("Checks to see if TAs are done grading. Call with submissions link. Optional " + 
+                                    "attachment: .csv grading spreadsheet"))
 async def gr_check(ctx, submission_link):
     logging.info(f"Checking submissions for {ctx.guild.id} w/ completed grading - {submission_link}")
     try:
@@ -110,9 +110,9 @@ async def gr_check(ctx, submission_link):
         logging.exception(e)
         await send_message(ctx.channel, f"Error encountered when handling request: {e}")
 
-@bot.command(name='gr-consistency', help="""Checks the consistency of grading. Call with the submission link.
-                                            Optional 2nd arg: whether or not a template is used. Optional attachment:
-                                            .csv grading spreadsheet""")
+@bot.command(name='gr-consistency', help=("Checks the consistency of grading. Call with the submission link. " + 
+                                          "Optional 2nd arg: whether or not a template is used. Optional attachment: " + 
+                                          ".csv grading spreadsheet"))
 async def gr_consistency(ctx, submission_link, template: bool = False):
     logging.info(f"Checking submissions for consistency in {ctx.guild.id}: {submission_link}, {template}")
     try:

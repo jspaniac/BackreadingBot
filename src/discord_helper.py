@@ -101,7 +101,7 @@ class DiscordHelper:
         Returns: The API token, Ed user object
         """
         async def invalid_wrapper():
-            await respond_dm("""Error with the provided ed token. Please try again""")
+            await respond_dm("Error with the provided ed token. Please try again")
         
         def check_wrapper(message):
             return dm_check(message, ctx)
@@ -110,11 +110,11 @@ class DiscordHelper:
         try:
             token, user = await repeat_request(bot, check_wrapper, EdHelper.valid_token, TIMEOUT, invalid_wrapper)
             logging.debug(f"Successfully retrived valid ed token {token}, username {user['user']['name']}")
-            await respond_dm("""I'd recommend deleting that message now jic""")
-            await respond_dm(f"""The account name associated with the provided token is {user['user']['name']}. Now let's move back to the server""")
+            await respond_dm("I'd recommend deleting that message now jic")
+            await respond_dm(f"The account name associated with the provided token is {user['user']['name']}. Now let's move back to the server")
             return token, user['user']
         except TimeoutError:
-            await respond_dm("""Request timed out""")
+            await respond_dm("Request timed out")
             raise TimeoutError
     
     @staticmethod
@@ -130,7 +130,7 @@ class DiscordHelper:
         Returns: The course URL, Ed course object
         """
         async def invalid_wrapper():
-            await respond_public_channel("""No valid ed course found for that link. Please try again""")
+            await respond_public_channel("No valid ed course found for that link. Please try again")
         
         def check_wrapper(message):
             return correct_user_check(message, ctx)
@@ -141,12 +141,12 @@ class DiscordHelper:
             logging.debug(f"Successfully retrieved course from url {url}, name {course['code']}")
             if await y_n_emoji(
                 bot, respond_public_channel,
-                f"""The course you provided is named {course['code']}, is this correct?""",
+                f"The course you provided is named {course['code']}, is this correct?",
                 ctx.author, TIMEOUT
             ):
                 return url, course
             else:
-                respond_public_channel("""Then please enter the correct link 💅""")
+                respond_public_channel("Then please enter the correct link 💅")
     
     @staticmethod
     async def _get_role(ctx, bot, respond_public_channel):
@@ -159,7 +159,7 @@ class DiscordHelper:
         Returns: The role name, and discord role object
         """
         async def invalid_wrapper():
-            await respond_public_channel("""""Role with provided name does not exist. Please re-enter""")
+            await respond_public_channel("Role with provided name does not exist. Please re-enter")
         
         def valid_role_check(role):
             role = discord.utils.get(ctx.guild.roles, name=role)
@@ -203,23 +203,22 @@ class DiscordHelper:
             
 
             # 2. Ask for ed token
-            await respond_public_channel("""The first step requires entering a valid ed token. For the
-                    sake of privacy, I'll ask in a DM""")
-            await respond_dm("""What is your ed token? Note that this application will be using this token
-                    to read and respond to threads on the server you provide. If you're not comfortable
-                    with this, feel free to let the request timeout""")
+            await respond_public_channel("The first step requires entering a valid ed token. For the " +
+                                         "sake of privacy, I'll ask in a DM")
+            await respond_dm("What is your ed token? Note that this application will be using this token " +
+                             "to read and respond to threads on the server you provide. If you're not comfortable " +
+                             "with this, feel free to let the request timeout")
             token, ed_user = await DiscordHelper._get_token(ctx, bot, respond_dm)
             ed_helper = EdHelper(token)
 
             # 3. Get the url with checking
-            await respond_public_channel("""Now, provide the url of the discussion board for the ed course
-                    you wish the bot to connect to"""
-            )
+            await respond_public_channel("Now, provide the url of the discussion board for the ed course " +
+                                         "you wish the bot to connect to")
             url, course = await DiscordHelper._get_course(ctx, bot, respond_public_channel, ed_helper)
 
             # 4. Get backreading role for pings
             logging.info("Retrieving backreading role")
-            await respond_public_channel("""What is the name of your backreading role?""")
+            await respond_public_channel("What is the name of your backreading role?")
             role_name, role = await DiscordHelper._get_role(ctx, bot, respond_public_channel)
 
             # 5. Get approval
