@@ -1,6 +1,7 @@
 import discord
 import asyncio
 import csv
+import functools
 
 from exceptions import (
     TimeoutError, InvalidResponse
@@ -102,12 +103,12 @@ def write_csv(file_path, header, data):
         csvwriter.writerow(header)
         csvwriter.writerows(data)
 
-def convert_csv_to_html(csv_file, html_file):
+def convert_csv_to_html(csv_file_path, html_file_path):
     """
     Converts the given csv consistency file to an html one formatted appropriately for an
     Ed post
     """
-    with open('output.csv', newline='\n') as csv_file:
+    with open(csv_file_path, newline='\n') as csv_file:
         rows = []
         one = False
         last_ta = ""
@@ -120,7 +121,7 @@ def convert_csv_to_html(csv_file, html_file):
                         "one" if one else "two"))
         
         output = HTML_TABLE % (HTML_HEADER.format('TA', 'Link', 'Issue'),"".join(rows))
-        with open(html_file, 'w') as output_file:
+        with open(html_file_path, 'w') as output_file:
             output_file.write(HTML_STYLE + output)
 
 def progress_bar(current, total):
@@ -130,3 +131,9 @@ def progress_bar(current, total):
     """
     empty = int(BAR_SIZE * (current / total))
     return (FULL_SQUARE * (empty)) + (EMPTY_SQUARE * (BAR_SIZE - empty))
+
+def to_thread(func):
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        return await asyncio.to_thread(func, *args, **kwargs)
+    return wrapper

@@ -3,21 +3,25 @@ from collections import defaultdict
 import discord
 import datetime
 import re
+import logging
 
 from utils import (
-    invert_csv, write_csv, send_message, progress_bar, convert_csv_to_html
+    invert_csv, write_csv, send_message, progress_bar, convert_csv_to_html, to_thread
 )
 from constants import (
-    TEMP_DIR, PROGRESS_UPDATE_MULTIPLE, ASSIGNMENT_GRACE_MINUTES
+    TEMP_DIR, PROGRESS_UPDATE_MULTIPLE, ASSIGNMENT_GRACE_MINUTES, LOGGING_FILE
 )
 
 from ed_helper import EdHelper
 from discord_helper import DiscordHelper
 
+logging.basicConfig(filename=LOGGING_FILE, encoding='utf-8', level=logging.INFO)
+
 class ConsistencyConstants:
     FEEDBACK_BOX_REGEX ='{criteria_name}[a-zA-Z\s]*:[\s]*(\({criteria_mark}\)|{criteria_mark})'
     TEMPLATE_REGEX = '{criteria_name}[a-zA-Z\s]*:'
     VIEW_SUBMISSION_LINK = 'https://edstem.org/us/courses/{course_id}/lessons/{lesson_id}/slides/{slide_id}/submissions?u={user_id}&s={submission_id}'
+    VIEW_ATTEMPT_LINK = 'https://edstem.org/us/courses/{course_id}/lessons/{lesson_id}/attempts?slide={slide_id}&s={submission_id}'
 
 class ConsistencyRegex:
     EMAIL_REGEX = re.compile(
@@ -70,6 +74,7 @@ class ConsistencyChecker:
         return embed
 
     @staticmethod
+    @to_thread
     async def check_ungraded(ed_helper, channel, url, attachment_url):
         """
         Checks and organizes information regarding ungraded students for a given ed assignment
@@ -79,6 +84,7 @@ class ConsistencyChecker:
                 'url' - The url of the ed assignment to check
                 'attachment_url' - The url of the attachment sent with the initial user request (can be None)
         """
+        # TODO: Update this for attempts
         slide = ed_helper.get_slide(url)
         challenge_users = ed_helper.get_challenge_users(slide['challenge_id'])
         attachment = invert_csv(DiscordHelper.get_attachment(attachment_url)) if attachment_url else None
@@ -113,7 +119,7 @@ class ConsistencyChecker:
         return ""
 
     @staticmethod
-    def _find_submission_fixes(submissions, challenge, due_at, template):
+    def _find_submission_fixes(submissions, num_criteria, due_at, template):
         """
         Parses through a students graded submissions and reports any issues found with grading formatting
 
@@ -125,7 +131,7 @@ class ConsistencyChecker:
         """
         grace_period = datetime.timedelta(minutes=ASSIGNMENT_GRACE_MINUTES)
         for submission in submissions:
-            created_at = EdHelper.parse_datetime(submission['created_at'], milliseconds=False)
+            created_at = EdHelper.parse_datetime(submission['created_at'], milliseconds=True)
             if created_at < due_at + grace_period:
                 if submission['feedback'] is None:
                     # Feedback not given to appropriate submission
@@ -133,7 +139,7 @@ class ConsistencyChecker:
 
                 reason = ""
                 content = EdHelper.parse_content(submission['feedback']['content'])
-                if len(submission['feedback']['criteria']) != len(challenge['settings']['criteria']):
+                if len(submission['feedback']['criteria']) != num_criteria:
                     # Didn't fill out all dimensions
                     reason += "Not all dimensions assigned a grade, "
                 if not ConsistencyRegex.EMAIL_REGEX.search(content):
@@ -148,7 +154,7 @@ class ConsistencyChecker:
         return None, None
 
     @staticmethod
-    async def _find_fixes(progress_bar, url, ed_helper, spreadsheet, template):
+    async def _find_fixes(progress_bar_message, url, ed_helper, spreadsheet, template):
         """
         Finds all student submissions that have inconsistently formatted grading feedback and creates a dictionary
         containing the fixes that need to be made before publishing grades
@@ -160,31 +166,57 @@ class ConsistencyChecker:
                 'template' - Whether or not the grading template is expected
         Returns: A dictionary mapping (TA | link) -> (link, fixes) for all assignment that had incorrect formatting
         """
+
+        attempt_slide = "attempt" in url
+
         # Get the challenge id for the assignment
         ids = EdHelper.get_ids(url)
-        challenge_id = ed_helper.get_slide(url)['challenge_id']
+        lesson_id, slide_id = ids[1], ids[2]
+        challenge_id = ed_helper.get_slide(url)['challenge_id'] if not attempt_slide else None
 
         # Get user/challenge information
-        users = {user['id']: user['email'] for user in ed_helper.get_challenge_users(challenge_id) if user['course_role'] == "student"}
-        challenge = ed_helper.get_challenge(challenge_id)
-        due_at = EdHelper.parse_datetime(challenge['due_at'], milliseconds=False)
+        
+        users, due_at, num_criteria = None, None, None
+        if not attempt_slide:
+            users = {user['id']: None for user in ed_helper.get_challenge_users(challenge_id) if user['course_role'] == "student"}
+            
+            challenge = ed_helper.get_challenge(challenge_id)
+            due_at = EdHelper.parse_datetime(challenge['due_at'], milliseconds=False)
+            num_criteria = len(challenge['settings']['criteria'])
+        else:
+            users = {attempt['user_id']: attempt['sourced_id'] for attempt in ed_helper.get_attempt_results(lesson_id) if attempt['course_role'] == 'student'}
+
+            lesson = ed_helper.get_lesson(lesson_id)
+            due_at = EdHelper.parse_datetime(lesson['due_at'], milliseconds=False)
+            num_criteria = len(ed_helper.get_rubric(ed_helper.get_rubric_id(slide_id))['sections'])
         
         fixes = defaultdict(list)
         count = 0
-        for user_id, _ in users.items():
+        for user_id, submission_id in users.items():
             if count % PROGRESS_UPDATE_MULTIPLE == 0:
-                await progress_bar.edit(embed=discord.Embed(description=progress_bar(count, len(users))))
+                await progress_bar_message.edit(embed=discord.Embed(description=progress_bar(count, len(users))))
+                logging.info(f"{count} / {len(users)} Completed")
             count += 1
 
-            submissions = ed_helper.get_challenge_submissions(user_id, challenge_id)
-            submission_fixes, submission_id = ConsistencyChecker._find_submission_fixes(submissions, challenge, due_at, template)
+            submissions = ed_helper.get_challenge_submissions(user_id, challenge_id)  if not attempt_slide else ed_helper.get_attempt_submissions(user_id, lesson_id, slide_id, submission_id)
+            if submissions is None:
+                continue
+            
+            submission_fixes, submission_id = ConsistencyChecker._find_submission_fixes(submissions, num_criteria, due_at, template)
             if submission_fixes:
-                link = ConsistencyConstants.VIEW_SUBMISSION_LINK.format(
-                            course_id=ids[0], lesson_id=ids[1], slide_id=ids[2],
-                            user_id=user_id, submission_id=submission_id)
+                link = None
+                if not attempt_slide:
+                    link = ConsistencyConstants.VIEW_SUBMISSION_LINK.format(
+                                course_id=ids[0], lesson_id=ids[1], slide_id=ids[2],
+                                user_id=user_id, submission_id=submission_id)
+                else:
+                    link = ConsistencyConstants.VIEW_ATTEMPT_LINK.format(
+                                course_id=ids[0], lesson_id=ids[1], slide_id=ids[2],
+                                submission_id=EdHelper.convert_sid(submission_id))
                 key = link if spreadsheet is None else spreadsheet[str(user_id)]
                 fixes[key].append((link, submission_fixes))
 
+        logging.info("Completed consistency check")
         return fixes
 
     @staticmethod
@@ -219,7 +251,7 @@ class ConsistencyChecker:
         return embed
     
     @staticmethod
-    async def check_consistency(ed_helper, channel, url, attachment_url, template):
+    async def check_consistency(ed_helper, guild_id, channel, url, attachment_url, template):
         """
         Checks and organizes information regarding grading consistency for a given ed assignment
 
@@ -238,15 +270,17 @@ class ConsistencyChecker:
         data = ConsistencyChecker._convert_fixes_to_list(fixes)
         total_issues = len(data)
 
-        file_path = os.path.join(TEMP_DIR, f'{channel}-{now}') 
+        file_path = os.path.join(TEMP_DIR, f'{guild_id}-{now}') 
         write_csv(file_path + ".csv", ['TA', 'Link', 'Issue'], data)
         convert_csv_to_html(file_path + ".csv", file_path + ".html")
 
         # Send the files back
-        embed = ConsistencyChecker._format_fixes_embed(spreadsheet, fixes, ed_helper.get_slide(url)['title'])
-        await send_message(channel, embed=embed, files=[discord.File(file_path + ".csv"), discord.File(file_path + ".html")])
+        if total_issues > 0:
+            #if "attempt" not in url:
+                embed = ConsistencyChecker._format_fixes_embed(spreadsheet, fixes, ed_helper.get_slide(url)['title'])
+                await send_message(channel, embed, files=[discord.File(file_path + ".csv"), discord.File(file_path + ".html")])
+            #else:
+            #    await send_message(channel, "No way to send without leaking student info, reach out to Joe for files")
         await send_message(channel, "All clear!" if total_issues == 0 else f"{total_issues} students with consistency issues")
 
         # Remove the files
-        os.remove(file_path + ".csv")
-        os.remove(file_path + ".html")

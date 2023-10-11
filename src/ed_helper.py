@@ -21,11 +21,26 @@ class EdConstants:
     CHALLENGE_USER_REQUEST = 'https://us.edstem.org/api/challenges/{challenge_id}/users'
     CHALLENGE_SUBMISSIONS = 'https://us.edstem.org/api/users/{user_id}/challenges/{challenge_id}/submissions'
 
+    ED_ATTEMPT_RESULTS_REQUEST = "https://us.edstem.org/api/lessons/{lesson_id}/results?students=1&strategy=latest&observers=0"
+    ED_LESSON_REQUEST = "https://us.edstem.org/api/lessons/{lesson_id}?view=1"
+    ED_RUBRIC_REQUEST = "https://us.edstem.org/api/rubrics/{rubric_id}"
+    ED_QUESTION_REQUEST = "https://us.edstem.org/api/lessons/slides/{slide_id}/questions"
+    ED_ATTTEMPT_REQUEST = "https://us.edstem.org/api/lessons/{lesson_id}/attempts/{user_id}"
+    ED_MARK_REQUEST = "https://us.edstem.org/api/lesson_marks/{mark_id}?rubric_items=true"
+    ED_QUIZ_REQUEST = "https://us.edstem.org/api/attempts/{lesson_attempt_id}/quiz_responses/{slide_id}"
+
     POST_REQUEST = 'https://us.edstem.org/api/threads/{thread_id}/comments'
     ACCEPT_REQUEST = 'https://us.edstem.org/api/comments/{comment_id}/accept'
 
     DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f%z"
     THREAD_LIMIT = 40
+
+    CRITERIA_MAP = {
+        "Exemplary": "E", "Excellent": "E",
+        "Satisfactory": "S",
+        "Not yet": "N", "Not Yet": "N",
+        "Unassessable": "U"
+    }
 
 class EdRegex:
     NUM_PATTERN = re.compile(
@@ -34,8 +49,13 @@ class EdRegex:
         r'https://edstem.org/us/courses/[0-9]+/discussion/')
     ASSIGNMENT_PATTERN = re.compile(
         r'https://edstem.org/us/courses/[0-9]+/lessons/[0-9]+/slides/[0-9]+')
-    CONTENT_JUNK_REGEX = ed_junk_regex = re.compile(
+    ATTEMPT_PATTERN = re.compile(
+        r'https://edstem.org/us/courses/[0-9]+/lessons/[0-9]+/attempts\?slide=[0-9]+'
+    )
+    CONTENT_JUNK_REGEX = re.compile(
         r'\u003c[^\u003c\u003e]*\u003e')
+    REMOVE_HTML_REGEX = re.compile('<.*?>')
+    
 
 class EdHelper:
     """
@@ -118,8 +138,67 @@ class EdHelper:
                 'challenge_id' - The ID of the ed challenge
         Returns: A list of Ed submission objects for the challenge
         """
-        get_response(EdConstants.CHALLENGE_SUBMISSIONS.format(user_id=user_id, challenge_id=challenge_id), self.token)['submissions']
+        return get_response(EdConstants.CHALLENGE_SUBMISSIONS.format(user_id=user_id, challenge_id=challenge_id), self.token)['submissions']
 
+    def get_attempt_results(self, lesson_id):
+        return get_response(EdConstants.ED_ATTEMPT_RESULTS_REQUEST.format(lesson_id=lesson_id), self.token)
+    
+    def get_lesson(self, lesson_id):
+        return get_response(EdConstants.ED_LESSON_REQUEST.format(lesson_id=lesson_id), self.token)['lesson']
+    
+    def get_rubric(self, rubric_id):
+        return get_response(EdConstants.ED_RUBRIC_REQUEST.format(rubric_id=rubric_id), self.token)['rubric']
+    
+    def get_rubric_id(self, slide_id):
+        questions = get_response(EdConstants.ED_QUESTION_REQUEST.format(slide_id=slide_id), self.token)['questions'][0]
+        return questions['rubric_id']
+    
+    def get_attempt_mark(self, mark_id):
+        return get_response(EdConstants.ED_MARK_REQUEST.format(mark_id=mark_id), self.token)
+    
+    def get_quiz_responses(self, attempt_id, slide_id):
+        return get_response(EdConstants.ED_QUIZ_REQUEST.format(lesson_attempt_id=attempt_id, slide_id=slide_id), self.token)['responses']
+    
+    def get_attempt_submissions(self, user_id, lesson_id, slide_id, submission_id):
+        attempt_response = get_response(EdConstants.ED_ATTTEMPT_REQUEST.format(lesson_id=lesson_id, user_id=user_id), self.token)
+        final_id = attempt_response["final_id"]
+        
+        final_submission_time = None
+        for attempt in attempt_response['attempts']:
+            if attempt['id'] == final_id:
+                final_submission_time = attempt['submitted_at']
+                break
+
+        # TODO: Have some notion of handling a too late final submission mark
+        if final_submission_time is None:
+            # No final submission marked
+            return None
+
+        all_criteria = []
+        ed_quiz_responses = self.get_quiz_responses(final_id, slide_id)
+        mark = self.get_attempt_mark(ed_quiz_responses[0]['lesson_mark']['id'])
+        
+        selected_rubric_items = mark['selected_rubric_items'] if 'selected_rubric_items' in mark else []
+        rubric = self.get_rubric(self.get_rubric_id(slide_id))
+        for section in rubric['sections']:
+            section_title = section['title']
+            for item in section['items']:
+                if item['id'] in selected_rubric_items:
+                    item_title = EdHelper.remove_html(item['title'])
+                    all_criteria.append({'name': section_title, 'mark': EdConstants.CRITERIA_MAP.get(item_title, item_title)})
+        
+        feedback_comment = ed_quiz_responses[0]['lesson_mark']['comment']
+        parsed_feedback_comment = EdHelper.remove_html("" if feedback_comment is None else feedback_comment)
+
+        return [{
+            'id': submission_id,
+            'created_at': final_submission_time,
+            'feedback': {
+                'criteria': all_criteria,
+                'content': parsed_feedback_comment
+            }
+        }]
+     
     @staticmethod
     def get_ids(url):
         """
@@ -134,9 +213,9 @@ class EdHelper:
         'milliseconds' is whether or not the given time contains milliseconds
         """
         splitted = time.rsplit(':', 1)
-        # datetime_format = EdConstants.DATETIME_FORMAT.replace('.', '') if milliseconds else EdConstants.DATETIME_FORMAT
+        datetime_format = EdConstants.DATETIME_FORMAT.replace('.', '') if not milliseconds else EdConstants.DATETIME_FORMAT
         return datetime.datetime.strptime(
-            splitted[0] + splitted[1], EdConstants.DATETIME_FORMAT)
+            splitted[0] + splitted[1], datetime_format)
     
     @staticmethod
     def valid_token(token):
@@ -154,7 +233,7 @@ class EdHelper:
         """
         Returns if the given url is formatted like a valid Ed assignment url
         """
-        return EdRegex.ASSIGNMENT_PATTERN.fullmatch(url)
+        return EdRegex.ASSIGNMENT_PATTERN.fullmatch(url) or EdRegex.ATTEMPT_PATTERN.fullmatch(url)
     
     @staticmethod
     def parse_content(content):
@@ -162,15 +241,38 @@ class EdHelper:
         Removes a variety of junk escape characters found within an ed content box
         """
         return re.sub(EdRegex.CONTENT_JUNK_REGEX, ' ', content)
+    
+    @staticmethod
+    def remove_html(content):
+        """
+        Removes the html from a given content box
+        """
+        return re.sub(EdRegex.REMOVE_HTML_REGEX, '', content)
+    
+    @staticmethod
+    def is_overall_submission_link(url):
+        # TODO: Better way?
+        return "attempts" in url
+    
+    @staticmethod
+    def convert_sid(sid):
+        if sid[0].isdigit():
+            return str(int(re.search(r'\d+', sid).group()))
+        return sid
 
 def get_response(url, token, payload={}):
     """
     Makes a GET request to the given 'url' endpoint using the authorization bearer 'token' and url params 'payload'
     """
-    return requests.get(url=url, params=payload, headers={'Authorization': 'Bearer ' + token}).json()
+    response = requests.get(url=url, params=payload, headers={'Authorization': 'Bearer ' + token}).json()
+    logging.debug(f"GET response for {url}: {response}")
+    return response
 
 def post_payload(url, token, payload={}):
     """
     Makes a POST request to the given 'url' endpoint using the authorization bearer 'token' and form params 'payload'
     """
-    return requests.post(url=url, json=payload, headers={'Authorization': 'Bearer ' + token}).json()
+    response = requests.post(url=url, json=payload, headers={'Authorization': 'Bearer ' + token}).json()
+    logging.debug(f"POST Response for {url}: {response}")
+    return response
+

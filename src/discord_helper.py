@@ -346,7 +346,6 @@ class DiscordHelper:
             if ed_thread_id in threads:
                 # Thread has already been pulled into discord
                 continue
-            # TODO: Uncomment
             # if today - EdHelper.parse_datetime(thread['created_at']) < delay_delta:
                 # Hasn't been enough delay since initial posting
                 # continue

@@ -117,13 +117,14 @@ async def gr_consistency(ctx, submission_link, template: bool = False):
     logging.info(f"Checking submissions for consistency in {ctx.guild.id}: {submission_link}, {template}")
     try:
         if not EdHelper.valid_assignment_url(submission_link):
-            send_message(ctx.channel, "Provided link is invalid, try again")
+            await send_message(ctx.channel, "Provided link is invalid, try again")
             return
         
         attachment_url = ctx.message.attachments[0].url if ctx.message.attachments else None
         ed_helper = EdHelper(database.get_token(ctx.guild.id))
 
-        await ConsistencyChecker.check_consistency(ed_helper, ctx.channel, submission_link, attachment_url, template)
+        # TODO: https://discordpy.readthedocs.io/en/stable/faq.html?highlight=heartbeat#what-does-blocking-mean
+        await ConsistencyChecker.check_consistency(ed_helper, ctx.guild.id, ctx.channel, submission_link, attachment_url, template)
         logging.info(f"Successfully completed consistency check for {ctx.guild.id}")
     except Exception as e:
         logging.exception(e)
@@ -135,12 +136,14 @@ async def gr_consistency(ctx, submission_link, template: bool = False):
 @bot.event
 async def on_connect():
     logging.info("Bot finished loading external files!")
-    pull_threads.start()
+    if not pull_threads.is_running():
+        pull_threads.start()
 
 @tasks.loop(seconds=REFRESH_DELAY*60)
 async def pull_threads():
     try:
         for guild_id in database.guild_ids():
+            # TODO: https://stackoverflow.com/questions/65881761/discord-gateway-warning-shard-id-none-heartbeat-blocked-for-more-than-10-second
             await DiscordHelper.refresh_threads(guild_id, database, bot)
     except Exception as e:
         logging.exception(e)

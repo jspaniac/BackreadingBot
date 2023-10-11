@@ -26,3 +26,4 @@ class InvalidEdToken(Exception):
     """
     An exception for when the provided Ed API token isn't valid
     """
+    pass
