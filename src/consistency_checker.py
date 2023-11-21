@@ -105,7 +105,7 @@ class ConsistencyChecker:
         for criteria in all_criteria:
             # TODO: This is gross - either fix the template or figure out a better way
             if criteria['name'] == "Testing/Reflection":
-                criteria['name'] = "(Reflection|Testing/Reflection|Testing\s/\sReflection)"
+                criteria['name'] = "(Reflection|Testing/Reflection|Testing\s/\sReflection|Reflection/Testing|Reflection\s/\sTesting)"
 
             if not re.compile(ConsistencyConstants.FEEDBACK_BOX_REGEX.format(criteria_name=criteria['name'],
                                                                              criteria_mark=criteria['mark'])).search(content):
@@ -245,6 +245,7 @@ class ConsistencyChecker:
         """
         embed = discord.Embed(title=slide_title,
                               description="Report of students with inconsistent feedback")
+        # TODO: Seems as though spreadsheet is none? Sometimes there's no section info
         if spreadsheet is not None:
             for ta, issues in fixes.items():
                 embed.add_field(name=ta, value=len(issues))
