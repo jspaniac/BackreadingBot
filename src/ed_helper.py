@@ -61,7 +61,7 @@ class EdHelper:
     """
     Represents an interface with the Ed API that allows users to carry out various requests
     """
-    def __init__(self, token):
+    def __init__(self, token, retries=5):
         """
         Constructs a new ed helper instance from the given API token. If the given token is invalid,
         raises InvalidEdToken
@@ -71,6 +71,7 @@ class EdHelper:
         try:
             EdHelper.valid_token(token)
             self.token = token
+            self.retries = retries
         except InvalidResponse:
             raise InvalidEdToken
     
@@ -84,7 +85,7 @@ class EdHelper:
             'is_private': False,
             'is_anonymous': False}
         }
-        response = post_payload(EdConstants.POST_REQUEST.format(thread_id=thread_id), self.token, payload)
+        response = post_payload(EdConstants.POST_REQUEST.format(thread_id=thread_id), self.token, self.retries, payload)
         logging.info(response)
         # Don't wrap since ed doesn't give a response for accepting an answer
         
@@ -108,7 +109,7 @@ class EdHelper:
         Returns: A list of Ed thread objects for the course
         """
         payload = {'limit': EdConstants.THREAD_LIMIT, 'sort': 'new'}
-        return get_response(EdConstants.THREAD_REQUEST.format(id=course_id), self.token, payload)['threads']
+        return get_response(EdConstants.THREAD_REQUEST.format(id=course_id), self.token, self.retries, payload)['threads']
     
     def get_slide(self, url):
         """
@@ -116,21 +117,21 @@ class EdHelper:
         Returns: An Ed slide object
         """
         payload = {'view': 1}
-        return get_response(EdConstants.SLIDE_REQUEST.format(slide_id=EdHelper.get_ids(url)[2]), self.token, payload)['slide']
+        return get_response(EdConstants.SLIDE_REQUEST.format(slide_id=EdHelper.get_ids(url)[2]), self.token, self.retries, payload)['slide']
     
     def get_challenge_users(self, challenge_id):
         """
         Params: 'challenge_id' - The ID of the Ed challenge to get users for
         Returns: A list of Ed user objects for the challenge
         """
-        return get_response(EdConstants.CHALLENGE_USER_REQUEST.format(challenge_id=challenge_id), self.token)['users']
+        return get_response(EdConstants.CHALLENGE_USER_REQUEST.format(challenge_id=challenge_id), self.token, self.retries)['users']
     
     def get_challenge(self, challenge_id):
         """
         Params: 'challenge_id' - The ID of the Ed challenge to get information for
         Returns: An Ed challenge object corresponding to the given ID
         """
-        return get_response(EdConstants.BASE_CHALLENGE.format(challenge_id=challenge_id), self.token)['challenge']
+        return get_response(EdConstants.BASE_CHALLENGE.format(challenge_id=challenge_id), self.token, self.retries)['challenge']
     
     def get_challenge_submissions(self, user_id, challenge_id):
         """
@@ -138,29 +139,29 @@ class EdHelper:
                 'challenge_id' - The ID of the ed challenge
         Returns: A list of Ed submission objects for the challenge
         """
-        return get_response(EdConstants.CHALLENGE_SUBMISSIONS.format(user_id=user_id, challenge_id=challenge_id), self.token)['submissions']
+        return get_response(EdConstants.CHALLENGE_SUBMISSIONS.format(user_id=user_id, challenge_id=challenge_id), self.token, self.retries)['submissions']
 
     def get_attempt_results(self, lesson_id):
-        return get_response(EdConstants.ED_ATTEMPT_RESULTS_REQUEST.format(lesson_id=lesson_id), self.token)
+        return get_response(EdConstants.ED_ATTEMPT_RESULTS_REQUEST.format(lesson_id=lesson_id), self.token, self.retries)
     
     def get_lesson(self, lesson_id):
-        return get_response(EdConstants.ED_LESSON_REQUEST.format(lesson_id=lesson_id), self.token)['lesson']
+        return get_response(EdConstants.ED_LESSON_REQUEST.format(lesson_id=lesson_id), self.token, self.retries)['lesson']
     
     def get_rubric(self, rubric_id):
-        return get_response(EdConstants.ED_RUBRIC_REQUEST.format(rubric_id=rubric_id), self.token)['rubric']
+        return get_response(EdConstants.ED_RUBRIC_REQUEST.format(rubric_id=rubric_id), self.token, self.retries)['rubric']
     
     def get_rubric_id(self, slide_id):
-        questions = get_response(EdConstants.ED_QUESTION_REQUEST.format(slide_id=slide_id), self.token)['questions'][0]
+        questions = get_response(EdConstants.ED_QUESTION_REQUEST.format(slide_id=slide_id), self.token, self.retries)['questions'][0]
         return questions['rubric_id']
     
     def get_attempt_mark(self, mark_id):
-        return get_response(EdConstants.ED_MARK_REQUEST.format(mark_id=mark_id), self.token)
+        return get_response(EdConstants.ED_MARK_REQUEST.format(mark_id=mark_id), self.token, self.retries)
     
     def get_quiz_responses(self, attempt_id, slide_id):
-        return get_response(EdConstants.ED_QUIZ_REQUEST.format(lesson_attempt_id=attempt_id, slide_id=slide_id), self.token)['responses']
+        return get_response(EdConstants.ED_QUIZ_REQUEST.format(lesson_attempt_id=attempt_id, slide_id=slide_id), self.token, self.retries)['responses']
     
     def get_attempt_submissions(self, user_id, lesson_id, slide_id, submission_id):
-        attempt_response = get_response(EdConstants.ED_ATTTEMPT_REQUEST.format(lesson_id=lesson_id, user_id=user_id), self.token)
+        attempt_response = get_response(EdConstants.ED_ATTTEMPT_REQUEST.format(lesson_id=lesson_id, user_id=user_id), self.token, self.retries)
         final_id = attempt_response["final_id"]
         
         final_submission_time = None
@@ -218,13 +219,13 @@ class EdHelper:
             splitted[0] + splitted[1], datetime_format)
     
     @staticmethod
-    def valid_token(token):
+    def valid_token(token, retries=5):
         """
         If the given token is valid, returns the corresponding ed user object.
         Otherwise raises InvalidResponse
         """
         try:
-            return get_response(EdConstants.USER_REQUEST, token)
+            return get_response(EdConstants.USER_REQUEST, token, retries)
         except:
             raise InvalidResponse
     
@@ -260,19 +261,31 @@ class EdHelper:
             return str(int(re.search(r'\d+', sid).group()))
         return sid
 
-def get_response(url, token, payload={}):
+
+def get_response(url, token, retries, payload={}):
     """
     Makes a GET request to the given 'url' endpoint using the authorization bearer 'token' and url params 'payload'
     """
-    response = requests.get(url=url, params=payload, headers={'Authorization': 'Bearer ' + token}).json()
-    logging.debug(f"GET response for {url}: {response}")
-    return response
+    for i in range(retries):
+        try:
+            response = requests.get(url=url, params=payload, headers={'Authorization': 'Bearer ' + token})
+            if response.status_code in [200, 404]:
+                logging.debug(f"GET response for {url}: {response}")
+                return response.json()
+        except requests.exceptions.ConnectionError:
+            logging.debug(f"GET Attempt {i}/{retries} failed, retrying")
+    return None
 
-def post_payload(url, token, payload={}):
+def post_payload(url, token, retries, payload={}):
     """
     Makes a POST request to the given 'url' endpoint using the authorization bearer 'token' and form params 'payload'
     """
-    response = requests.post(url=url, json=payload, headers={'Authorization': 'Bearer ' + token}).json()
-    logging.debug(f"POST Response for {url}: {response}")
-    return response
-
+    for i in range(retries):
+        try:
+            response = requests.post(url=url, json=payload, headers={'Authorization': 'Bearer ' + token})
+            if response.status_code in [200, 404]:
+                logging.debug(f"POST Response for {url}: {response}")
+                return response.json()
+        except requests.exceptions.ConnectionError:
+            logging.debug(f"GET Attempt {i}/{retries} failed, retrying")
+    return None
