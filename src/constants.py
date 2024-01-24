@@ -26,3 +26,5 @@ PROGRESS_UPDATE_MULTIPLE = 50
 
 # What the assignment due time grace period is
 ASSIGNMENT_GRACE_MINUTES = 15
+
+DISCORD_MAX_EMBED_FIELDS = 25

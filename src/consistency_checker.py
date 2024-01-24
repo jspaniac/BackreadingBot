@@ -3,13 +3,14 @@ from collections import defaultdict
 import discord
 import datetime
 import re
+import math
 import logging
 
 from utils import (
     invert_csv, write_csv, send_message, progress_bar, convert_csv_to_html, to_thread
 )
 from constants import (
-    TEMP_DIR, PROGRESS_UPDATE_MULTIPLE, ASSIGNMENT_GRACE_MINUTES, LOGGING_FILE
+    TEMP_DIR, PROGRESS_UPDATE_MULTIPLE, ASSIGNMENT_GRACE_MINUTES, LOGGING_FILE, DISCORD_MAX_EMBED_FIELDS
 )
 
 from ed_helper import EdHelper
@@ -243,13 +244,20 @@ class ConsistencyChecker:
                 'slide_title' - The title of the ed assignment slide
         Returns: A properly formatted discord embed
         """
-        embed = discord.Embed(title=slide_title,
-                              description="Report of students with inconsistent feedback")
+        total_embeds = math.ceil(len(fixes) / DISCORD_MAX_EMBED_FIELDS)
+        embeds = [discord.Embed(title=slide_title,
+                                description=f"Report of students with inconsistent feedback ({i + 1}/{total_embeds})")
+                                for i in range(total_embeds)]
         # TODO: Seems as though spreadsheet is none? Sometimes there's no section info
         if spreadsheet is not None:
+            i, j = 0, 0
             for ta, issues in fixes.items():
-                embed.add_field(name=ta, value=len(issues))
-        return embed
+                if (i == DISCORD_MAX_EMBED_FIELDS):
+                    j += 1
+                    i = 0
+                embeds[j].add_field(name=ta, value=len(issues))
+                i += 1
+        return embeds
     
     @staticmethod
     async def check_consistency(ed_helper, guild_id, channel, url, attachment_url, template):
@@ -278,8 +286,10 @@ class ConsistencyChecker:
         # Send the files back
         if total_issues > 0:
             #if "attempt" not in url:
-                embed = ConsistencyChecker._format_fixes_embed(spreadsheet, fixes, ed_helper.get_slide(url)['title'])
-                await send_message(channel, embed, files=[discord.File(file_path + ".csv"), discord.File(file_path + ".html")])
+                embeds = ConsistencyChecker._format_fixes_embed(spreadsheet, fixes, ed_helper.get_slide(url)['title'])
+                await send_message(channel, embeds[0], files=[discord.File(file_path + ".csv"), discord.File(file_path + ".html")])
+                for i in range(1, len(embeds)):
+                    await send_message(channel, embeds[i])
             #else:
             #    await send_message(channel, "No way to send without leaking student info, reach out to Joe for files")
         await send_message(channel, "All clear!" if total_issues == 0 else f"{total_issues} students with consistency issues")
