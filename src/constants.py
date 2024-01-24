@@ -1,8 +1,8 @@
 import os
 
 # Various files and directories
-STORAGE_DIR = '../store'
-TEMP_DIR = '../temp'
+STORAGE_DIR = os.path.join(os.getcwd(), 'store')
+TEMP_DIR = os.path.join(os.getcwd(), 'temp')
 LOGGING_FILE = os.path.join(STORAGE_DIR, 'logging', 'base.log')
 DB_FILE = os.path.join(STORAGE_DIR, 'database.json')
 AUTH_FILE = os.path.join(STORAGE_DIR, 'auth.json')
