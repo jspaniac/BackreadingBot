@@ -1,10 +1,12 @@
 #!/bin/bash
 kill_process() {
-    local pid=$1
+    local name=$1
+    local pid="$(ps -A | grep $name | awk '{print $1}')"
     if [ -n "$pid" ]; then
-        echo "Killing process with PID: $pid"
+        echo "KILLING PROCESS WITH FOUND PID: $pid"
         kill -9 "$pid"
     fi
 }
-kill_process "$(ps -A | grep keep-running | awk '{print $1}')" 
-kill_process "$(ps -A | grep python3.9 | awk '{print $1}')"
+
+kill_process "keep-running" 
+kill_process "python3.9"

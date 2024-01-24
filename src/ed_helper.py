@@ -270,7 +270,7 @@ def get_response(url, token, retries, payload={}):
     for i in range(retries):
         try:
             response = requests.get(url=url, params=payload, headers={'Authorization': 'Bearer ' + token})
-            if response.status_code in [200, 404]:
+            if response.ok:
                 logging.debug(f"GET response for {url}: {response}")
                 return response.json()
         except requests.exceptions.ConnectionError:
@@ -284,7 +284,7 @@ def post_payload(url, token, retries, payload={}):
     for i in range(retries):
         try:
             response = requests.post(url=url, json=payload, headers={'Authorization': 'Bearer ' + token})
-            if response.status_code in [200, 404]:
+            if response.ok:
                 logging.debug(f"POST Response for {url}: {response}")
                 return response.json()
         except requests.exceptions.ConnectionError:
