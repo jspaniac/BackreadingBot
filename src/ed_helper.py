@@ -160,8 +160,10 @@ class EdHelper:
     def get_quiz_responses(self, attempt_id, slide_id):
         return get_response(EdConstants.ED_QUIZ_REQUEST.format(lesson_attempt_id=attempt_id, slide_id=slide_id), self.token, self.retries)['responses']
     
-    def get_attempt_submissions(self, user_id, lesson_id, slide_id, submission_id):
+    def get_attempt_submissions(self, user_id, lesson_id, slide_id, submission_id, rubric):
         attempt_response = get_response(EdConstants.ED_ATTTEMPT_REQUEST.format(lesson_id=lesson_id, user_id=user_id), self.token, self.retries)
+        if "final_id" not in attempt_response:
+            return None
         final_id = attempt_response["final_id"]
         
         final_submission_time = None
@@ -172,7 +174,7 @@ class EdHelper:
 
         # TODO: Have some notion of handling a too late final submission mark
         if final_submission_time is None:
-            # No final submission marked
+            # No final submission submitted
             return None
 
         all_criteria = []
@@ -180,7 +182,6 @@ class EdHelper:
         mark = self.get_attempt_mark(ed_quiz_responses[0]['lesson_mark']['id'])
         
         selected_rubric_items = mark['selected_rubric_items'] if 'selected_rubric_items' in mark else []
-        rubric = self.get_rubric(self.get_rubric_id(slide_id))
         for section in rubric['sections']:
             section_title = section['title']
             for item in section['items']:
