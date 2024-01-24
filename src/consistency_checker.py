@@ -194,6 +194,10 @@ class ConsistencyChecker:
         fixes = defaultdict(list)
         count = 0
         for user_id, submission_id in users.items():
+            if spreadsheet and str(user_id) not in spreadsheet:
+                # This student isn't present in the grading spreadsheet, skip
+                continue
+
             if count % PROGRESS_UPDATE_MULTIPLE == 0:
                 await progress_bar_message.edit(embed=discord.Embed(description=progress_bar(count, len(users))))
                 logging.info(f"{count} / {len(users)} Completed")
