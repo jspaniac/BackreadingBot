@@ -177,7 +177,7 @@ class ConsistencyChecker:
 
         # Get user/challenge information
         
-        users, due_at, num_criteria = None, None, None
+        users, due_at, num_criteria, rubric = None, None, None, None
         if not attempt_slide:
             users = {user['id']: None for user in ed_helper.get_challenge_users(challenge_id) if user['course_role'] == "student"}
             
@@ -190,6 +190,7 @@ class ConsistencyChecker:
             lesson = ed_helper.get_lesson(lesson_id)
             due_at = EdHelper.parse_datetime(lesson['due_at'], milliseconds=False)
             num_criteria = len(ed_helper.get_rubric(ed_helper.get_rubric_id(slide_id))['sections'])
+            rubric = ed_helper.get_rubric(ed_helper.get_rubric_id(slide_id))
         
         fixes = defaultdict(list)
         count = 0
@@ -203,7 +204,7 @@ class ConsistencyChecker:
                 logging.info(f"{count} / {len(users)} Completed")
             count += 1
 
-            submissions = ed_helper.get_challenge_submissions(user_id, challenge_id)  if not attempt_slide else ed_helper.get_attempt_submissions(user_id, lesson_id, slide_id, submission_id)
+            submissions = ed_helper.get_challenge_submissions(user_id, challenge_id)  if not attempt_slide else ed_helper.get_attempt_submissions(user_id, lesson_id, slide_id, submission_id, rubric)
             if submissions is None:
                 continue
             
