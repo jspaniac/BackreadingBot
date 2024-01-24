@@ -3,7 +3,11 @@
 ## Setup
 There is a non-trivial amount of setup required to start executing this discord bot on your local machine, which has been segmented into the 3 primary parts below.
 ### Python
-First, create a conda environment for the python installation requirements
+First, make sure you're on `python3.9` and that you're able to run python commands via a `python3.9` prefix. To test this, run the following:
+```bash
+python3.9 --version
+```
+Then create a conda environment for the python installation requirements
 ```bash
 conda create --name backreading-bot
 conda activate backreading-bot
