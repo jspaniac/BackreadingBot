@@ -155,6 +155,17 @@ class ConsistencyChecker:
                     return reason[:-2], submission['id']
                 break
         return None, None
+    
+    @staticmethod
+    def _get_link(ids, user_id, submission_id, attempt_slide=False):
+        if not attempt_slide:
+            return ConsistencyConstants.VIEW_SUBMISSION_LINK.format(
+                                course_id=ids[0], lesson_id=ids[1], slide_id=ids[2],
+                                user_id=user_id, submission_id=submission_id)
+        else:
+            return ConsistencyConstants.VIEW_ATTEMPT_LINK.format(
+                        course_id=ids[0], lesson_id=ids[1], slide_id=ids[2],
+                        submission_id=EdHelper.convert_sid(submission_id))
 
     @staticmethod
     async def _find_fixes(progress_bar_message, url, ed_helper, spreadsheet, template):
@@ -194,10 +205,11 @@ class ConsistencyChecker:
             num_criteria = len(ed_helper.get_rubric(ed_helper.get_rubric_id(slide_id))['sections'])
             rubric = ed_helper.get_rubric(ed_helper.get_rubric_id(slide_id))
         
-        fixes = defaultdict(list)
-        count = 0
+        fixes, not_present, count = defaultdict(list), [], 0
         for user_id, submission_id in users.items():
             if spreadsheet and str(user_id) not in spreadsheet:
+                # TODO: Print a warning
+                not_present.append(ConsistencyChecker._get_link(ids, user_id, submission_id, attempt_slide))
                 # This student isn't present in the grading spreadsheet, skip
                 continue
 
@@ -206,26 +218,19 @@ class ConsistencyChecker:
                 logging.info(f"{count} / {len(users)} Completed")
             count += 1
 
-            submissions = ed_helper.get_challenge_submissions(user_id, challenge_id)  if not attempt_slide else ed_helper.get_attempt_submissions(user_id, lesson_id, slide_id, submission_id, rubric)
+            submissions = ed_helper.get_challenge_submissions(user_id, challenge_id) if not attempt_slide else ed_helper.get_attempt_submissions(user_id, lesson_id, slide_id, submission_id, rubric)
             if submissions is None:
                 continue
             
             submission_fixes, submission_id = ConsistencyChecker._find_submission_fixes(submissions, num_criteria, due_at, template)
             if submission_fixes:
-                link = None
-                if not attempt_slide:
-                    link = ConsistencyConstants.VIEW_SUBMISSION_LINK.format(
-                                course_id=ids[0], lesson_id=ids[1], slide_id=ids[2],
-                                user_id=user_id, submission_id=submission_id)
-                else:
-                    link = ConsistencyConstants.VIEW_ATTEMPT_LINK.format(
-                                course_id=ids[0], lesson_id=ids[1], slide_id=ids[2],
-                                submission_id=EdHelper.convert_sid(submission_id))
+                link = ConsistencyChecker._get_link(ids, user_id, submission_id, attempt_slide)
+                
                 key = link if spreadsheet is None else spreadsheet[str(user_id)]
                 fixes[key].append((link, submission_fixes))
 
         logging.info("Completed consistency check")
-        return fixes
+        return fixes, not_present
 
     @staticmethod
     def _convert_fixes_to_list(fixes):
@@ -251,19 +256,18 @@ class ConsistencyChecker:
                 'slide_title' - The title of the ed assignment slide
         Returns: A properly formatted discord embed
         """
+        if spreadsheet is None:
+            return [discord.Embed(title=slide_title, description="Report of students with inconsistent feedback (1/1)")]
+        
         total_embeds = math.ceil(len(fixes) / DISCORD_MAX_EMBED_FIELDS)
         embeds = [discord.Embed(title=slide_title,
                                 description=f"Report of students with inconsistent feedback ({i + 1}/{total_embeds})")
                                 for i in range(total_embeds)]
         # TODO: Seems as though spreadsheet is none? Sometimes there's no section info
-        if spreadsheet is not None:
-            i, j = 0, 0
-            for ta, issues in fixes.items():
-                if (i == DISCORD_MAX_EMBED_FIELDS):
-                    j += 1
-                    i = 0
-                embeds[j].add_field(name=ta, value=len(issues))
-                i += 1
+        i = 0
+        for ta, issues in fixes.items():
+            embeds[int(math.floor(i / DISCORD_MAX_EMBED_FIELDS))].add_field(name=ta, value=len(issues))
+            i += 1
         return embeds
     
     @staticmethod
@@ -278,7 +282,7 @@ class ConsistencyChecker:
         """
         spreadsheet = invert_csv(DiscordHelper.get_attachment(attachment_url)) if attachment_url else None
         progress_bar_message = await send_message(channel, progress_bar(0, 1))
-        fixes = await ConsistencyChecker._find_fixes(progress_bar_message, url, ed_helper, spreadsheet, template)
+        fixes, not_present = await ConsistencyChecker._find_fixes(progress_bar_message, url, ed_helper, spreadsheet, template)
         await progress_bar_message.edit(embed=discord.Embed(description=progress_bar(1, 1)))
 
         # Write the info into files to be sent
@@ -292,13 +296,10 @@ class ConsistencyChecker:
 
         # Send the files back
         if total_issues > 0:
-            #if "attempt" not in url:
-                embeds = ConsistencyChecker._format_fixes_embed(spreadsheet, fixes, ed_helper.get_slide(url)['title'])
-                await send_message(channel, embeds[0], files=[discord.File(file_path + ".csv"), discord.File(file_path + ".html")])
-                for i in range(1, len(embeds)):
-                    await send_message(channel, embeds[i])
-            #else:
-            #    await send_message(channel, "No way to send without leaking student info, reach out to Joe for files")
+            embeds = ConsistencyChecker._format_fixes_embed(spreadsheet, fixes, ed_helper.get_slide(url)['title'])
+            await send_message(channel, embeds[0], files=[discord.File(file_path + ".csv"), discord.File(file_path + ".html")])
+            for i in range(1, len(embeds)):
+                await send_message(channel, embeds[i])
         await send_message(channel, "All clear!" if total_issues == 0 else f"{total_issues} students with consistency issues")
 
         # Remove the files
