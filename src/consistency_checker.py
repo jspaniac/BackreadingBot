@@ -110,7 +110,6 @@ class ConsistencyChecker:
             elif criteria['name'] == "Concepts":
                 criteria['name'] = "Concepts{0,1}"
 
-
             if not re.compile(ConsistencyConstants.FEEDBACK_BOX_REGEX.format(criteria_name=criteria['name'],
                                                                              criteria_mark=criteria['mark'])).search(content):
                 # Feedback not properly templated
