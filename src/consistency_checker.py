@@ -105,7 +105,7 @@ class ConsistencyChecker:
         """
         for criteria in all_criteria:
             # TODO: This is gross - either fix the template or figure out a better way
-            if criteria['name'] == "Testing/Reflection":
+            if "Testing" in criteria['name'] or "Reflection" in criteria['name']:
                 criteria['name'] = "(Reflection)|(Testing)"
             elif criteria['name'] == "Concepts":
                 criteria['name'] = "Concepts{0,1}"
