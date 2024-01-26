@@ -19,8 +19,8 @@ from discord_helper import DiscordHelper
 logging.basicConfig(filename=LOGGING_FILE, encoding='utf-8', level=logging.INFO)
 
 class ConsistencyConstants:
-    FEEDBACK_BOX_REGEX ='{criteria_name}[a-zA-Z\s]*:[\s]*(\({criteria_mark}\)|{criteria_mark})'
-    TEMPLATE_REGEX = '{criteria_name}[a-zA-Z\s]*:'
+    FEEDBACK_BOX_REGEX ='({criteria_name})[a-zA-Z\s]*:\s*_*(\({criteria_mark}\)|{criteria_mark})'
+    TEMPLATE_REGEX = '({criteria_name})[a-zA-Z\s\\/]*:'
     VIEW_SUBMISSION_LINK = 'https://edstem.org/us/courses/{course_id}/lessons/{lesson_id}/slides/{slide_id}/submissions?u={user_id}&s={submission_id}'
     VIEW_ATTEMPT_LINK = 'https://edstem.org/us/courses/{course_id}/lessons/{lesson_id}/attempts?slide={slide_id}&s={submission_id}'
 
@@ -106,7 +106,10 @@ class ConsistencyChecker:
         for criteria in all_criteria:
             # TODO: This is gross - either fix the template or figure out a better way
             if criteria['name'] == "Testing/Reflection":
-                criteria['name'] = "(Reflection|Testing/Reflection|Testing\s/\sReflection|Reflection/Testing|Reflection\s/\sTesting)"
+                criteria['name'] = "(Reflection)|(Testing)"
+            elif criteria['name'] == "Concepts":
+                criteria['name'] = "Concepts{0,1}"
+
 
             if not re.compile(ConsistencyConstants.FEEDBACK_BOX_REGEX.format(criteria_name=criteria['name'],
                                                                              criteria_mark=criteria['mark'])).search(content):
