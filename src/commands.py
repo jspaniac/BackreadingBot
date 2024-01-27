@@ -30,16 +30,12 @@ async def main():
     parser.set_defaults(ferpa=False)
 
     args = parser.parse_args()
-    try:
-        await globals()[args.command](args)
-    except Exception as e:
-        print(f"{str(e)}, try again")
-
+    await globals()[args.command](args)
 
 async def consistency(args):
-    if 'ed_token' not in args:
+    if args.ed_token is None:
         raise MissingArgument("Ed token required to run grading checks")
-    if 'assignment_link' not in args:
+    if args.assignment_link is None:
         raise MissingArgument("Assignment link required to run grading checks")
     if not EdHelper.valid_token(args.ed_token):
         raise InvalidArgument("Ed token is invalid")
@@ -78,9 +74,9 @@ async def consistency(args):
     print(f"Result files can be found at:\n\t{file_name}.csv\n\t{file_name}.html\n")
 
 async def ungraded(args):
-    if 'ed_token' not in args:
+    if args.ed_token is None:
         raise MissingArgument("Ed token required to run grading checks")
-    if 'assignment_link' not in args:
+    if args.assignment_link is None:
         raise MissingArgument("Assignment link required to run grading checks")
     if not EdHelper.valid_token(args.ed_token):
         raise InvalidArgument("Ed token is invalid")

@@ -10,6 +10,7 @@ from exceptions import (
     InvalidResponse, InvalidEdToken
 )
 
+DEBUG = False
 logging.basicConfig(filename=LOGGING_FILE, encoding='utf-8', level=logging.INFO)
 
 class EdConstants:
@@ -50,7 +51,7 @@ class EdRegex:
     ASSIGNMENT_PATTERN = re.compile(
         r'https://edstem.org/us/courses/[0-9]+/lessons/[0-9]+/slides/[0-9]+')
     ATTEMPT_PATTERN = re.compile(
-        r'https://edstem.org/us/courses/[0-9]+/lessons/[0-9]+/attempts\?(email=[A-Za-z0-9]+@uw.edu&)?slide=[0-9]+'
+        r'https://edstem.org/us/courses/[0-9]+/lessons/[0-9]+/attempts\?(email=[A-Za-z0-9]+(@|%40)uw.edu&)?slide=[0-9]+'
     )
     CONTENT_JUNK_REGEX = re.compile(
         r'\u003c[^\u003c\u003e]*\u003e')
@@ -252,7 +253,7 @@ class EdHelper:
         try:
             return get_response(EdConstants.USER_REQUEST, token, retries)
         except:
-            raise InvalidResponse
+            raise InvalidResponse("Invalid Ed token")
     
     @staticmethod
     def valid_assignment_url(url):
@@ -294,6 +295,8 @@ def get_response(url, token, retries, payload={}):
     for i in range(retries):
         try:
             response = requests.get(url=url, params=payload, headers={'Authorization': 'Bearer ' + token})
+            if DEBUG:
+                print(response.json())
             if response.ok:
                 logging.debug(f"GET response for {url}: {response}")
                 return response.json()
@@ -308,6 +311,8 @@ def post_payload(url, token, retries, payload={}):
     for i in range(retries):
         try:
             response = requests.post(url=url, json=payload, headers={'Authorization': 'Bearer ' + token})
+            if DEBUG:
+                print(response.json())
             if response.ok:
                 logging.debug(f"POST Response for {url}: {response}")
                 return response.json()

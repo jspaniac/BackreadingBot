@@ -24,7 +24,7 @@ class ConsistencyConstants:
 
 class ConsistencyRegex:
     EMAIL_REGEX = re.compile(
-        r'[A-Za-z0-9]+@(uw|cs.washington).edu')
+        r'[A-Za-z0-9]+(@|%40)(uw|cs.washington).edu')
 
 class ConsistencyChecker:
     @staticmethod
