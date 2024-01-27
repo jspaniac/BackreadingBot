@@ -151,8 +151,7 @@ class EdHelper:
         return get_response(EdConstants.ED_RUBRIC_REQUEST.format(rubric_id=rubric_id), self.token, self.retries)['rubric']
     
     def get_rubric_id(self, slide_id):
-        questions = get_response(EdConstants.ED_QUESTION_REQUEST.format(slide_id=slide_id), self.token, self.retries)['questions'][0]
-        return questions['rubric_id']
+        return get_response(EdConstants.ED_QUESTION_REQUEST.format(slide_id=slide_id), self.token, self.retries)['questions'][0]['rubric_id']
     
     def get_attempt_mark(self, mark_id):
         return get_response(EdConstants.ED_MARK_REQUEST.format(mark_id=mark_id), self.token, self.retries)

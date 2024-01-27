@@ -1,6 +1,7 @@
 import discord
 import logging
 import re
+import math
 import requests
 import datetime
 
@@ -8,7 +9,7 @@ from utils import (
     send_message, repeat_request, dm_check, correct_user_check, y_n_emoji
 )
 from constants import (
-    TIMEOUT, LOGGING_FILE, PULL_DELAY, THREAD_LINK,
+    TIMEOUT, LOGGING_FILE, PULL_DELAY, THREAD_LINK, DISCORD_MAX_EMBED_FIELDS
 )
 from exceptions import (
     TimeoutError, InvalidResponse
@@ -309,6 +310,30 @@ class DiscordHelper:
                                   timestamp=time)
             embed.set_author(name=thread['category'] + (" - " + thread['subcategory'] if thread['subcategory'] != "" else ""))
             return embed
+    
+    @staticmethod
+    def _format_fixes_embed(spreadsheet, fixes, slide_title):
+        """
+        Creates and formats a discord embed that contains relevant information on inconsistently graded submissions
+
+        Params: 'spreadsheet' - A dictionary mapping ed student ID to TA name (can be None)
+                'fixes' - A dictionary (TA | link) -> fixes depending on if a grading spreadsheet was provided
+                'slide_title' - The title of the ed assignment slide
+        Returns: A properly formatted discord embed
+        """
+        if spreadsheet is None:
+            return [discord.Embed(title=slide_title, description="Report of students with inconsistent feedback (1/1)")]
+        
+        total_embeds = math.ceil(len(fixes) / DISCORD_MAX_EMBED_FIELDS)
+        embeds = [discord.Embed(title=slide_title,
+                                description=f"Report of students with inconsistent feedback ({i + 1}/{total_embeds})")
+                                for i in range(total_embeds)]
+        # TODO: Seems as though spreadsheet is none? Sometimes there's no section info
+        i = 0
+        for ta, issues in fixes.items():
+            embeds[int(math.floor(i / DISCORD_MAX_EMBED_FIELDS))].add_field(name=ta, value=len(issues))
+            i += 1
+        return embeds
 
     @staticmethod
     async def refresh_threads(guild_id, database, bot):

@@ -12,6 +12,7 @@ REFRESH_DELAY = 5
 PULL_DELAY = 5
 
 # Viewable Ed link
+SUBMISSION_LINK = "https://edstem.org/us/courses/{course_id}/lessons/{lesson_id}/attempts?slide={slide_id}&email={email}"
 THREAD_LINK = 'https://edstem.org/us/courses/{course_id}/discussion/{thread_id}'
 
 # Misc symbols
@@ -27,4 +28,5 @@ PROGRESS_UPDATE_MULTIPLE = 50
 # What the assignment due time grace period is
 ASSIGNMENT_GRACE_MINUTES = 15
 
+# Turns out discord has a max number of embed fields...
 DISCORD_MAX_EMBED_FIELDS = 25

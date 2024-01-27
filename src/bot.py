@@ -1,11 +1,15 @@
 import json
+import os
 import discord
+import datetime
 from discord.ext import commands, tasks
 import logging
 from constants import (
-    LOGGING_FILE, REFRESH_DELAY, AUTH_FILE
+    LOGGING_FILE, REFRESH_DELAY, AUTH_FILE, TEMP_DIR
 )
-from utils import send_message
+from utils import (
+    send_message, invert_csv, progress_bar
+)
 
 from database import Database
 from discord_helper import DiscordHelper
@@ -120,11 +124,26 @@ async def gr_consistency(ctx, submission_link, template: bool = False):
             await send_message(ctx.channel, "Provided link is invalid, try again")
             return
         
-        attachment_url = ctx.message.attachments[0].url if ctx.message.attachments else None
         ed_helper = EdHelper(database.get_token(ctx.guild.id))
+        spreadsheet = invert_csv(DiscordHelper.get_attachment(ctx.message.attachments[0].url)) if ctx.message.attachments else None
+        file_path = os.path.join(TEMP_DIR, f'{ctx.guild.id}-{datetime.datetime.now()}')
 
+        progress_bar_message = await send_message(ctx.channel, progress_bar(0, 1))
+        async def update_progress(curr, total):
+            await progress_bar_message.edit(embed=discord.Embed(description=progress_bar(curr, total)))
+        
         # TODO: https://discordpy.readthedocs.io/en/stable/faq.html?highlight=heartbeat#what-does-blocking-mean
-        await ConsistencyChecker.check_consistency(ed_helper, ctx.guild.id, ctx.channel, submission_link, attachment_url, template)
+        fixes, not_present, total_issues = await ConsistencyChecker.check_consistency(ed_helper, submission_link, file_path, template, spreadsheet, update_progress)
+        
+        if total_issues > 0:
+            embeds = DiscordHelper._format_fixes_embed(spreadsheet, fixes, ed_helper.get_slide(submission_link)['title'])
+            await send_message(ctx.channel, embeds[0], files=[discord.File(file_path + ".csv"), discord.File(file_path + ".html")])
+            for i in range(1, len(embeds)):
+                await send_message(ctx.channel, embeds[i])
+        if len(not_present) > 0:
+            await send_message(ctx.channel, f"{len(not_present)} students not on the grading spreadsheet, refresh the roster")
+        await send_message(ctx.channel, "All clear!" if total_issues == 0 else f"{total_issues} students with consistency issues")
+        
         logging.info(f"Successfully completed consistency check for {ctx.guild.id}")
     except Exception as e:
         logging.exception(e)
