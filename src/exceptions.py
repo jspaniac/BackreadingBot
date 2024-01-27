@@ -27,3 +27,15 @@ class InvalidEdToken(Exception):
     An exception for when the provided Ed API token isn't valid
     """
     pass
+
+class MissingArgument(Exception):
+    """
+    An exception for when the client hasn't provided an argument when running commands locally
+    """
+    pass
+
+class InvalidArgument(Exception):
+    """
+    An exception for when the client has provided a bad argument that isn't valid when running commands locally
+    """
+    pass

@@ -108,6 +108,9 @@ async def gr_check(ctx, submission_link):
         if not EdHelper.valid_assignment_url(submission_link):
             send_message(ctx.channel, "Provided link is invalid, try again")
             return
+        if "attempt" in submission_link and "email" in submission_link:
+            await send_message(ctx.channel, "Provided link accidentally contains FERPA protected information (email). Please call again with the email removed")
+            return
         
         spreadsheet = invert_csv(DiscordHelper.get_attachment(ctx.message.attachments[0].url)) if ctx.message.attachments else None
         ed_helper = EdHelper(database.get_token(ctx.guild.id))
@@ -121,7 +124,9 @@ async def gr_check(ctx, submission_link):
 
         key_to_ungraded, total_ungraded = await ConsistencyChecker.check_ungraded(ed_helper, submission_link, spreadsheet, update_progress)
         
-        await send_message(ctx.channel, DiscordHelper._format_ungraded_embed(key_to_ungraded, ed_helper.get_slide(submission_link)['title']))
+        embeds = DiscordHelper._format_ungraded_embed(key_to_ungraded, ed_helper.get_slide(submission_link)['title'])
+        for embed in embeds:
+            await send_message(ctx.channel, embed)
         await send_message(ctx.channel, "All clear!" if total_ungraded == 0 else f"{total_ungraded} students still ungraded")
         
         logging.info(f"Successfully checked grading completion for {ctx.guild.id}")
@@ -138,6 +143,9 @@ async def gr_consistency(ctx, submission_link, template: bool = False):
     try:
         if not EdHelper.valid_assignment_url(submission_link):
             await send_message(ctx.channel, "Provided link is invalid, try again")
+            return
+        if "attempt" in submission_link and "email" in submission_link:
+            await send_message(ctx.channel, "Provided link accidentally contains FERPA protected information (email). Please call again with the email removed")
             return
         
         ed_helper = EdHelper(database.get_token(ctx.guild.id))

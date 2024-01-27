@@ -77,7 +77,7 @@ class DiscordHelper:
         """
         Resolves the given thread, sending a final message and removing it from the database
 
-        Params: 'bot' -
+        Params: 'bot' - The discord bot object
                 'thread' - The discord thread object to archive
                 'database' - The bot's database
                 'guild_id' - The ID of the guild where the thread is being archived
@@ -371,24 +371,34 @@ class DiscordHelper:
         today = datetime.datetime.now(datetime.timezone.utc)
         delay_delta = datetime.timedelta(minutes=PULL_DELAY)
 
+        
+
         ed_helper = EdHelper(database.get_token(guild_id))
-        threads = ed_helper.get_threads(database.get_course(guild_id))
-        for thread in reversed(threads):
+        ed_threads = ed_helper.get_threads(database.get_course(guild_id))
+        server_threads = database.get_threads(guild_id)
+
+        deleted_threads = server_threads - {thread['id'] for thread in ed_threads}
+        for thread_id in deleted_threads:
+            # Thread's been deleted from ed and is still in discord (or in theory the thread is really old and unanswered on ed)
+            logging.info(f"Closing deleted thread {thread_id} with channel id {server_threads[ed_thread_id]}")
+            await DiscordHelper.resolve_thread(bot, database, guild_id, ed_thread_id, "Deleted from Ed")
+            continue
+
+        for thread in reversed(ed_threads):
             if thread['category'] != "Assignments" or thread['type'] != "question":
                 # Check to see if the post is actually a question related to assignments
                 continue
 
             ed_thread_id = str(thread['id'])
-            threads = database.get_threads(guild_id)
-            if ed_thread_id in threads and thread['is_answered']:
+            if ed_thread_id in server_threads and thread['is_answered']:
                 # If we've already posted about it, resolve if answered
-                logging.info(f"Closing thread {ed_thread_id} with channel id {threads[ed_thread_id]}")
+                logging.info(f"Closing thread {ed_thread_id} with channel id {server_threads[ed_thread_id]}")
                 await DiscordHelper.resolve_thread(bot, database, guild_id, ed_thread_id, "Resolved on Ed")
                 continue
             if thread['is_answered']:
                 # Thread has already been answered
                 continue
-            if ed_thread_id in threads:
+            if ed_thread_id in server_threads:
                 # Thread has already been pulled into discord
                 continue
             # if today - EdHelper.parse_datetime(thread['created_at']) < delay_delta:

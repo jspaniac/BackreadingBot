@@ -7,6 +7,9 @@ from consistency_checker import ConsistencyChecker
 from utils import (
     progress_bar
 )
+from exceptions import (
+    MissingArgument, InvalidArgument
+)
 from constants import TEMP_DIR
 
 CHOICES = ['consistency', 'ungraded']
@@ -27,14 +30,23 @@ async def main():
     parser.set_defaults(ferpa=False)
 
     args = parser.parse_args()
-    await globals()[args.command](args)
+    try:
+        await globals()[args.command](args)
+    except Exception as e:
+        print(f"{str(e)}, try again")
+
 
 async def consistency(args):
+    if 'ed_token' not in args:
+        raise MissingArgument("Ed token required to run grading checks")
+    if 'assignment_link' not in args:
+        raise MissingArgument("Assignment link required to run grading checks")
+    if not EdHelper.valid_token(args.ed_token):
+        raise InvalidArgument("Ed token is invalid")
+    if not EdHelper.valid_assignment_url(args.assignment_link):
+        raise InvalidArgument("Assignment link is invalid")
+    
     spreadsheet = None
-    if args.ed_token is None:
-        raise Exception("Ed token required to run consistency checks")
-    if args.assignment_link is None:
-        raise Exception("Assignment link required to run consistency checks")
     if args.scrubbed_spreadsheet is not None:
         spreadsheet = open(args.scrubbed_spreadsheet)
     
@@ -66,14 +78,19 @@ async def consistency(args):
     print(f"Result files can be found at:\n\t{file_name}.csv\n\t{file_name}.html\n")
 
 async def ungraded(args):
-    spreadsheet = None
     if 'ed_token' not in args:
-        raise Exception("Ed token required to run grading checks")
+        raise MissingArgument("Ed token required to run grading checks")
     if 'assignment_link' not in args:
-        raise Exception("Assignment link required to run grading checks")
+        raise MissingArgument("Assignment link required to run grading checks")
+    if not EdHelper.valid_token(args.ed_token):
+        raise InvalidArgument("Ed token is invalid")
+    if not EdHelper.valid_assignment_url(args.assignment_link):
+        raise InvalidArgument("Assignment link is invalid")
+    
+    spreadsheet = None
     if args.scrubbed_spreadsheet is not None:
         spreadsheet = open(args.scrubbed_spreadsheet)
-    
+
     ed_helper = EdHelper(args.ed_token)
     print("\nRunning grade completion checker:")
     print(progress_bar(0, 1), end='\r', flush=True)

@@ -50,7 +50,7 @@ class EdRegex:
     ASSIGNMENT_PATTERN = re.compile(
         r'https://edstem.org/us/courses/[0-9]+/lessons/[0-9]+/slides/[0-9]+')
     ATTEMPT_PATTERN = re.compile(
-        r'https://edstem.org/us/courses/[0-9]+/lessons/[0-9]+/attempts\?slide=[0-9]+'
+        r'https://edstem.org/us/courses/[0-9]+/lessons/[0-9]+/attempts\?(email=[A-Za-z0-9]+@uw.edu&)?slide=[0-9]+'
     )
     CONTENT_JUNK_REGEX = re.compile(
         r'\u003c[^\u003c\u003e]*\u003e')
