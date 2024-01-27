@@ -328,10 +328,30 @@ class DiscordHelper:
         embeds = [discord.Embed(title=slide_title,
                                 description=f"Report of students with inconsistent feedback ({i + 1}/{total_embeds})")
                                 for i in range(total_embeds)]
-        # TODO: Seems as though spreadsheet is none? Sometimes there's no section info
+
         i = 0
         for ta, issues in fixes.items():
             embeds[int(math.floor(i / DISCORD_MAX_EMBED_FIELDS))].add_field(name=ta, value=len(issues))
+            i += 1
+        return embeds
+    
+    @staticmethod
+    def _format_ungraded_embed(key_to_ungraded, slide_title):
+        """
+        Creates and formats a discord embed that contains relevant information on ungraded submissions
+
+        Params: 'key_to_ungraded' - A dictionary mapping either (section | TA) -> total ungraded
+                'slide_title' - The title of the ed assignment slide
+        Returns: A properly formatted discord embed
+        """
+        total_embeds = math.ceil(len(key_to_ungraded) / DISCORD_MAX_EMBED_FIELDS)
+        embeds = [discord.Embed(title=slide_title,
+                                description=f"Report of students with uncomplete feedback ({i + 1}/{total_embeds})")
+                                for i in range(total_embeds)]
+        
+        i = 0
+        for key, ungraded in key_to_ungraded.items():
+            embeds[int(math.floor(i / DISCORD_MAX_EMBED_FIELDS))].add_field(name=key, value=ungraded)
             i += 1
         return embeds
 

@@ -1,20 +1,17 @@
 import os
 from collections import defaultdict
-import discord
 import datetime
 import re
-import math
 import logging
 
 from utils import (
-    invert_csv, write_csv, send_message, progress_bar, convert_csv_to_html, to_thread
+    write_csv, convert_csv_to_html, to_thread
 )
 from constants import (
     TEMP_DIR, PROGRESS_UPDATE_MULTIPLE, ASSIGNMENT_GRACE_MINUTES, LOGGING_FILE, DISCORD_MAX_EMBED_FIELDS
 )
 
 from ed_helper import EdHelper
-from discord_helper import DiscordHelper
 
 logging.basicConfig(filename=LOGGING_FILE, encoding='utf-8', level=logging.INFO)
 
@@ -41,43 +38,23 @@ class ConsistencyChecker:
                                 used instead
         Returns: The aforementioned dictionary and the total number of ungraded students
         """
-        key_to_ungraded = {}
+        key_to_ungraded, not_present = defaultdict(int), 0
         total_ungraded = 0
         for user in users:
-            if user['course_role'] != "student":
-                continue
+            if spreadsheet and str(user['id']) not in spreadsheet:
+                # This student isn't present in the grading spreadsheet, skip
+                not_present += 1
+                continue             
             
-            key = user['tutorial']
-            if spreadsheet:
-                if str(user['id']) not in spreadsheet:
-                    continue
-                key = spreadsheet[str(user['id'])]
+            key = spreadsheet[str(user['id'])] if spreadsheet else user['tutorial']
             
-            if not key in key_to_ungraded:
-                key_to_ungraded[key] = 0
             if user['completed'] and user['feedback_status'] != "complete":
-                    key_to_ungraded[key] += 1
-                    total_ungraded += 1
-        return key_to_ungraded, total_ungraded
+                key_to_ungraded[key] += 1
+                total_ungraded += 1
+        return key_to_ungraded, not_present, total_ungraded
 
     @staticmethod
-    def _format_ungraded_embed(key_to_ungraded, slide_title):
-        """
-        Creates and formats a discord embed that contains relevant information on ungraded submissions
-
-        Params: 'key_to_ungraded' - A dictionary mapping either (section | TA) -> total ungraded
-                'slide_title' - The title of the ed assignment slide
-        Returns: A properly formatted discord embed
-        """
-        embed = discord.Embed(title=slide_title,
-                              description="Report of students with uncomplete feedback")
-        for key, ungraded in key_to_ungraded.items():
-            embed.add_field(name=key, value=ungraded)
-        return embed
-
-    @staticmethod
-    @to_thread
-    async def check_ungraded(ed_helper, channel, url, attachment_url):
+    async def check_ungraded(ed_helper, url, spreadsheet=None, progress_bar_update=None):
         """
         Checks and organizes information regarding ungraded students for a given ed assignment
 
@@ -86,14 +63,29 @@ class ConsistencyChecker:
                 'url' - The url of the ed assignment to check
                 'attachment_url' - The url of the attachment sent with the initial user request (can be None)
         """
-        # TODO: Update this for attempts
-        slide = ed_helper.get_slide(url)
-        challenge_users = ed_helper.get_challenge_users(slide['challenge_id'])
-        attachment = invert_csv(DiscordHelper.get_attachment(attachment_url)) if attachment_url else None
+        url = ConsistencyRegex.EMAIL_REGEX.sub('', url)
+        attempt_slide = "attempt" in url
         
-        key_to_ungraded, total_ungraded = ConsistencyChecker._count_ungraded(challenge_users, attachment)
-        await send_message(channel, ConsistencyChecker._format_ungraded_embed(key_to_ungraded, slide['title']))
-        await send_message(channel, "All clear!" if total_ungraded == 0 else f"{total_ungraded} students still ungraded")
+        users = None
+        if not attempt_slide:
+            slide = ed_helper.get_slide(url)
+            users = [user for user in ed_helper.get_challenge_users(slide['challenge_id'])
+                     if user['course_role'] == 'student']
+        else:
+            ids = EdHelper.get_ids(url)
+            lesson_id, slide_id = ids[1], ids[2]
+            rubric = ed_helper.get_rubric(ed_helper.get_rubric_id(slide_id))
+            attempts, users = ed_helper.get_attempt_results(lesson_id), []
+            
+            for i in range(len(attempts)):
+                if i % PROGRESS_UPDATE_MULTIPLE == 0:
+                    if progress_bar_update:
+                        await progress_bar_update(i, len(attempts))
+                    logging.info(f"{i} / {len(attempts)} Converted")
+                
+                users.append(ed_helper.get_attempt_user(attempts[i], lesson_id, slide_id, rubric))
+        
+        return ConsistencyChecker._count_ungraded(users, spreadsheet)
 
     @staticmethod
     def _check_criteria(all_criteria, content):
@@ -139,7 +131,7 @@ class ConsistencyChecker:
             if created_at < due_at + grace_period:
                 if submission['feedback'] is None:
                     # Feedback not given to appropriate submission
-                    return "Missing grade / incorrect submission graded", submission['id']
+                    return "Missing grade / incorrect submission graded or marked final", submission['id']
 
                 reason = ""
                 content = EdHelper.parse_content(submission['feedback']['content'])

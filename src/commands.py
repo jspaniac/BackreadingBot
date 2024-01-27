@@ -54,7 +54,7 @@ async def consistency(args):
     if total_issues > 0:
         print("Found Issues:")
         for ta, issues in fixes.items():
-            print(f"\t{'TA' if spreadsheet is not None else 'Section'}: {ta}, issues: {len(issues)}")
+            print(f"\t{'TA' if spreadsheet is not None else 'Section'}: {ta}, Issues: {len(issues)}")
             for issue in issues:
                 print(f"\t\t{issue}")
     if len(not_present) > 0:
@@ -66,14 +66,32 @@ async def consistency(args):
     print(f"Result files can be found at:\n\t{file_name}.csv\n\t{file_name}.html\n")
 
 async def ungraded(args):
+    spreadsheet = None
     if 'ed_token' not in args:
         raise Exception("Ed token required to run grading checks")
     if 'assignment_link' not in args:
         raise Exception("Assignment link required to run grading checks")
+    if args.scrubbed_spreadsheet is not None:
+        spreadsheet = open(args.scrubbed_spreadsheet)
     
     ed_helper = EdHelper(args.ed_token)
-    # TODO: Implement
-    pass
+    print("\nRunning grade completion checker:")
+    print(progress_bar(0, 1), end='\r', flush=True)
+    async def update_progress(curr, total):
+        print(progress_bar(curr, total), end='\n' if curr == total else '\r', flush=True)
+    
+    key_to_ungraded, not_present, total_ungraded = await ConsistencyChecker.check_ungraded(ed_helper, args.assignment_link, spreadsheet, update_progress)
+
+    print("All clear!" if total_ungraded == 0 else f"{total_ungraded} students with incomplete grading")
+    if total_ungraded > 0:
+        print("Found Ungraded Instances:")
+        for ta, ungraded in key_to_ungraded.items():
+            print(f"\t{'TA' if spreadsheet is not None else 'Section'}: {ta}, Ungraded: {ungraded}")
+    if not_present > 0:
+        print()
+        print(f"Total student submissions not present in grading spreadsheet: {not_present}")
+        print("Refresh grading roster!")
+    print()
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -45,6 +45,7 @@ async def br_setup(ctx):
         logging.exception(e)
         await send_message(ctx.channel, f"Error encountered when handling request: {e}")
 
+
 @bot.command(name='br-stop', help="Stops the backreading functionality of the bot, removing all data stored")
 async def br_stop(ctx):
     logging.info(f"Stop command from guild {ctx.guild.id}")
@@ -59,6 +60,7 @@ async def br_stop(ctx):
     except Exception as e:
         logging.exception(e)
         await send_message(ctx.channel, f"Error encountered when handling request: {e}")
+
 
 @bot.command(name='br-push', help="Reply to the agreed on answer with this command to push it to ed")
 async def br_push(ctx):
@@ -81,6 +83,7 @@ async def br_push(ctx):
         logging.exception(e)
         await send_message(ctx.channel, f"Error encountered when handling request: {e}")
 
+
 @bot.command(name='br-pull', help="Pulls new threads from ed")
 async def br_pull(ctx):
     logging.info(f"Refreshing backreading threads for {ctx.guild.id}")
@@ -96,6 +99,7 @@ async def br_pull(ctx):
         logging.exception(e)
         await send_message(ctx.channel, f"Error encountered when handling request: {e}")
 
+
 @bot.command(name='gr-check', help=("Checks to see if TAs are done grading. Call with submissions link. Optional " + 
                                     "attachment: .csv grading spreadsheet"))
 async def gr_check(ctx, submission_link):
@@ -105,14 +109,26 @@ async def gr_check(ctx, submission_link):
             send_message(ctx.channel, "Provided link is invalid, try again")
             return
         
-        attachment_url = ctx.message.attachments[0].url if ctx.message.attachments else None
+        spreadsheet = invert_csv(DiscordHelper.get_attachment(ctx.message.attachments[0].url)) if ctx.message.attachments else None
         ed_helper = EdHelper(database.get_token(ctx.guild.id))
 
-        await ConsistencyChecker.check_ungraded(ed_helper, ctx.channel, submission_link, attachment_url)
+        update_progress = None
+        if "attempt" in submission_link:
+            # Converting requires a lot of API calls which takes much longer than the OG, add progress bar
+            progress_bar_message = await send_message(ctx.channel, progress_bar(0, 1))
+            async def update_progress(curr, total):
+                await progress_bar_message.edit(embed=discord.Embed(description=progress_bar(curr, total)))
+
+        key_to_ungraded, total_ungraded = await ConsistencyChecker.check_ungraded(ed_helper, submission_link, spreadsheet, update_progress)
+        
+        await send_message(ctx.channel, DiscordHelper._format_ungraded_embed(key_to_ungraded, ed_helper.get_slide(submission_link)['title']))
+        await send_message(ctx.channel, "All clear!" if total_ungraded == 0 else f"{total_ungraded} students still ungraded")
+        
         logging.info(f"Successfully checked grading completion for {ctx.guild.id}")
     except Exception as e:
         logging.exception(e)
         await send_message(ctx.channel, f"Error encountered when handling request: {e}")
+
 
 @bot.command(name='gr-consistency', help=("Checks the consistency of grading. Call with the submission link. " + 
                                           "Optional 2nd arg: whether or not a template is used. Optional attachment: " + 

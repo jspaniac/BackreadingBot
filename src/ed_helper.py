@@ -158,12 +158,12 @@ class EdHelper:
     
     def get_quiz_responses(self, attempt_id, slide_id):
         return get_response(EdConstants.ED_QUIZ_REQUEST.format(lesson_attempt_id=attempt_id, slide_id=slide_id), self.token, self.retries)['responses']
-    
+
     def get_attempt_submissions(self, user_id, lesson_id, slide_id, submission_id, rubric):
         attempt_response = get_response(EdConstants.ED_ATTTEMPT_REQUEST.format(lesson_id=lesson_id, user_id=user_id), self.token, self.retries)
         if "final_id" not in attempt_response:
             return None
-        final_id = attempt_response["final_id"]
+        final_id = attempt_response['final_id']
         
         final_submission_time = None
         for attempt in attempt_response['attempts']:
@@ -199,7 +199,32 @@ class EdHelper:
                 'content': parsed_feedback_comment
             }
         }]
-     
+
+    def get_attempt_user(self, user, lesson_id, slide_id, rubric):
+        ret = {
+            'id': user['user_id'],
+            'tutorial': user['tutorial'],
+            'completed': False,
+            'feedback_status': 'incomplete'
+        }
+
+        attempt_response = get_response(EdConstants.ED_ATTTEMPT_REQUEST.format(lesson_id=lesson_id, user_id=user['user_id']), self.token, self.retries)
+        if "final_id" not in attempt_response:
+            return ret
+        final_id = attempt_response['final_id']
+        
+        ret['completed'] = True
+        rubric = self.get_rubric(self.get_rubric_id(slide_id))
+        
+        ed_quiz_responses = self.get_quiz_responses(final_id, slide_id)
+        mark = self.get_attempt_mark(ed_quiz_responses[0]['lesson_mark']['id'])
+        selected_rubric_items = mark['selected_rubric_items'] if 'selected_rubric_items' in mark else []
+        
+        if len(selected_rubric_items) == len(rubric['sections']):
+            ret['feedback_status'] = 'complete'
+        
+        return ret
+
     @staticmethod
     def get_ids(url):
         """
