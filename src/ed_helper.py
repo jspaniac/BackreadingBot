@@ -3,6 +3,9 @@ import re
 import requests
 import datetime
 
+from typing import (
+    Optional, List, Dict
+)
 from constants import (
     LOGGING_FILE
 )
@@ -56,13 +59,15 @@ class EdRegex:
     CONTENT_JUNK_REGEX = re.compile(
         r'\u003c[^\u003c\u003e]*\u003e')
     REMOVE_HTML_REGEX = re.compile('<.*?>')
+    EMAIL_REGEX = re.compile(
+        r'[A-Za-z0-9]+(@|%40)(uw|cs.washington).edu')
     
 
 class EdHelper:
     """
     Represents an interface with the Ed API that allows users to carry out various requests
     """
-    def __init__(self, token, retries=5):
+    def __init__(self, token: str, retries: Optional[int]=5):
         """
         Constructs a new ed helper instance from the given API token. If the given token is invalid,
         raises InvalidEdToken
@@ -76,7 +81,7 @@ class EdHelper:
         except InvalidResponse:
             raise InvalidEdToken
     
-    def push_answer(self, thread_id, answer):
+    def push_answer(self, thread_id: str, answer: str):
         """
         """
         logging.info(f"Pushing answer to {thread_id}")
@@ -92,7 +97,7 @@ class EdHelper:
         
         requests.post(EdConstants.ACCEPT_REQUEST.format(comment_id=response['comment']['id']), headers={'x-token': self.token})
     
-    def valid_course(self, url):
+    def valid_course(self, url: str) -> bool:
         """
         Returns if the course represented by the given url is valid for the initial auth token
         """
@@ -104,7 +109,7 @@ class EdHelper:
                     return course['course']
         raise InvalidResponse
     
-    def get_threads(self, course_id):
+    def get_threads(self, course_id: int) -> List[Dict]:
         """
         Params: 'course_id' - The ID of the Ed course to get threads for
         Returns: A list of Ed thread objects for the course
@@ -112,7 +117,7 @@ class EdHelper:
         payload = {'limit': EdConstants.THREAD_LIMIT, 'sort': 'new'}
         return get_response(EdConstants.THREAD_REQUEST.format(id=course_id), self.token, self.retries, payload)['threads']
     
-    def get_slide(self, url):
+    def get_slide(self, url: str) -> Dict:
         """
         Params: 'url' - The url of the of the slide to get
         Returns: An Ed slide object
@@ -120,21 +125,21 @@ class EdHelper:
         payload = {'view': 1}
         return get_response(EdConstants.SLIDE_REQUEST.format(slide_id=EdHelper.get_ids(url)[2]), self.token, self.retries, payload)['slide']
     
-    def get_challenge_users(self, challenge_id):
+    def get_challenge_users(self, challenge_id: int) -> List[Dict]:
         """
         Params: 'challenge_id' - The ID of the Ed challenge to get users for
         Returns: A list of Ed user objects for the challenge
         """
         return get_response(EdConstants.CHALLENGE_USER_REQUEST.format(challenge_id=challenge_id), self.token, self.retries)['users']
     
-    def get_challenge(self, challenge_id):
+    def get_challenge(self, challenge_id: int) -> Dict:
         """
         Params: 'challenge_id' - The ID of the Ed challenge to get information for
         Returns: An Ed challenge object corresponding to the given ID
         """
         return get_response(EdConstants.BASE_CHALLENGE.format(challenge_id=challenge_id), self.token, self.retries)['challenge']
     
-    def get_challenge_submissions(self, user_id, challenge_id):
+    def get_challenge_submissions(self, user_id: int, challenge_id: int) -> List[Dict]:
         """
         Params: 'user_id' - The ID of the Ed user to get submissions for
                 'challenge_id' - The ID of the ed challenge
@@ -142,25 +147,61 @@ class EdHelper:
         """
         return get_response(EdConstants.CHALLENGE_SUBMISSIONS.format(user_id=user_id, challenge_id=challenge_id), self.token, self.retries)['submissions']
 
-    def get_attempt_results(self, lesson_id):
+    def get_attempt_results(self, lesson_id: int) -> List[Dict]:
+        """
+        Params: 'lesson_id' - The ID of the Ed lesson to get the attempt results for
+        Returns: A list of Ed result objects for the lesson
+        """
         return get_response(EdConstants.ED_ATTEMPT_RESULTS_REQUEST.format(lesson_id=lesson_id), self.token, self.retries)
     
-    def get_lesson(self, lesson_id):
+    def get_lesson(self, lesson_id: int) -> Dict:
+        """
+        Params 'lesson_id' - The ID of the Ed lesson to get the attempt results for
+        Returns: An Ed lesson object matching the given id
+        """
         return get_response(EdConstants.ED_LESSON_REQUEST.format(lesson_id=lesson_id), self.token, self.retries)['lesson']
     
-    def get_rubric(self, rubric_id):
+    def get_rubric(self, rubric_id: int) -> Dict:
+        """
+        Params 'rubric_id' - The ID of the rubric to get
+        Returns: An Ed rubric object matching the given ID
+        """
         return get_response(EdConstants.ED_RUBRIC_REQUEST.format(rubric_id=rubric_id), self.token, self.retries)['rubric']
     
-    def get_rubric_id(self, slide_id):
+    def get_rubric_id(self, slide_id: int) -> Dict:
+        """
+        Params 'slide_id' - The ID of the quiz slide to get the rubric of
+        Returns: The rubric ID for this quiz slide
+        """
         return get_response(EdConstants.ED_QUESTION_REQUEST.format(slide_id=slide_id), self.token, self.retries)['questions'][0]['rubric_id']
     
-    def get_attempt_mark(self, mark_id):
+    def get_attempt_mark(self, mark_id: int) -> Dict:
+        """
+        Params 'mark_id' - The ID of the _____
+        Returns: The Ed mark object matching the given ID
+        """
         return get_response(EdConstants.ED_MARK_REQUEST.format(mark_id=mark_id), self.token, self.retries)
     
-    def get_quiz_responses(self, attempt_id, slide_id):
+    def get_quiz_responses(self, attempt_id: int, slide_id: int) -> List[Dict]:
+        """
+        Params: 'attempt_id' - The ID of the attempt to get response for
+                'slide_id' - The ID of the quiz slide with responses
+        Returns: The responses for the quiz on the given slide and on the attempt matching the given id. 
+                 Includes selected rubric options
+        """
         return get_response(EdConstants.ED_QUIZ_REQUEST.format(lesson_attempt_id=attempt_id, slide_id=slide_id), self.token, self.retries)['responses']
 
-    def get_attempt_submissions(self, user_id, lesson_id, slide_id, submission_id, rubric):
+    def get_attempt_submissions(self, user_id: int, lesson_id: int, slide_id: int, submission_id: int, rubric: Dict) -> List[Dict]:
+        """
+        Converts Ed attempt feedback information into the previous challenge format
+
+        Params: 'user_id' - The ID of the user to get submission information for
+                'lesson_id' - The ID of the lesson to check
+                'slide_id' - The ID of the slide containing feedback
+                'submission_id' - The ID of the specific submission to check feedback of
+                'rubric' - The rubric for the slide to be joined on
+        Returns: A dict containing relevant submission feedback information for the user
+        """
         attempt_response = get_response(EdConstants.ED_ATTTEMPT_REQUEST.format(lesson_id=lesson_id, user_id=user_id), self.token, self.retries)
         if "final_id" not in attempt_response:
             return None
@@ -201,7 +242,16 @@ class EdHelper:
             }
         }]
 
-    def get_attempt_user(self, user, lesson_id, slide_id, rubric):
+    def get_attempt_user(self, user: Dict, lesson_id: int, slide_id: int, rubric: Dict) -> Dict:
+        """
+        Converts Ed attempt feedback completion information into the previous challenge format
+
+        Params: 'user' - An Ed attempt user object
+                'lesson_id' - The ID of the lesson to check
+                'slide_id' - The ID of the slide containing feedback
+                'rubric' - The rubric for the slide to be joined on
+        Returns: A dict containing relevant submission information for the user
+        """
         ret = {
             'id': user['user_id'],
             'tutorial': user['tutorial'],
@@ -227,14 +277,15 @@ class EdHelper:
         return ret
 
     @staticmethod
-    def get_ids(url):
+    def get_ids(url: str) -> List[int]:
         """
         Returns a list of all numeric IDs found within the given url
         """
+        url = EdRegex.EMAIL_REGEX.sub('', url)
         return re.findall(EdRegex.NUM_PATTERN, url)
     
     @staticmethod
-    def parse_datetime(time, milliseconds=True):
+    def parse_datetime(time: str, milliseconds: Optional[bool]=True) -> datetime.datetime:
         """
         Returns an appropriately formatted datetime object for the given Ed datetime formatting.
         'milliseconds' is whether or not the given time contains milliseconds
@@ -245,7 +296,7 @@ class EdHelper:
             splitted[0] + splitted[1], datetime_format)
     
     @staticmethod
-    def valid_token(token, retries=5):
+    def valid_token(token: str, retries: Optional[int]=5) -> Dict:
         """
         If the given token is valid, returns the corresponding ed user object.
         Otherwise raises InvalidResponse
@@ -256,39 +307,45 @@ class EdHelper:
             raise InvalidResponse("Invalid Ed token")
     
     @staticmethod
-    def valid_assignment_url(url):
+    def valid_assignment_url(url: str) -> bool:
         """
         Returns if the given url is formatted like a valid Ed assignment url
         """
         return EdRegex.ASSIGNMENT_PATTERN.fullmatch(url) or EdRegex.ATTEMPT_PATTERN.fullmatch(url)
     
     @staticmethod
-    def parse_content(content):
+    def parse_content(content: str) -> str:
         """
         Removes a variety of junk escape characters found within an ed content box
         """
         return re.sub(EdRegex.CONTENT_JUNK_REGEX, ' ', content)
     
     @staticmethod
-    def remove_html(content):
+    def remove_html(content: str) -> str:
         """
         Removes the html from a given content box
         """
         return re.sub(EdRegex.REMOVE_HTML_REGEX, '', content)
     
     @staticmethod
-    def is_overall_submission_link(url):
+    def is_overall_submission_link(url: str) -> bool:
+        """
+        Returns whether or not a url is for an overall submission on a lesson
+        """
         # TODO: Better way?
         return "attempts" in url
     
     @staticmethod
-    def convert_sid(sid):
+    def convert_sid(sid: str) -> str:
+        """
+        Stopgap for Ed bug, parses the sid as an int if it starts with an int, otherwise a string
+        """
         if sid[0].isdigit():
             return str(int(re.search(r'\d+', sid).group()))
         return sid
 
 
-def get_response(url, token, retries, payload={}):
+def get_response(url: str, token: str, retries: int, payload: Optional[Dict]={}):
     """
     Makes a GET request to the given 'url' endpoint using the authorization bearer 'token' and url params 'payload'
     """
@@ -304,7 +361,7 @@ def get_response(url, token, retries, payload={}):
             logging.debug(f"GET Attempt {i}/{retries} failed, retrying")
     return None
 
-def post_payload(url, token, retries, payload={}):
+def post_payload(url: str, token: str, retries: int, payload: Optional[Dict]={}):
     """
     Makes a POST request to the given 'url' endpoint using the authorization bearer 'token' and form params 'payload'
     """

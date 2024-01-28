@@ -1,5 +1,8 @@
 import logging
 import json
+from typing import (
+    Optional, Union, Set, Dict
+)
 
 from constants import (
     LOGGING_FILE, DB_FILE
@@ -16,7 +19,7 @@ class Database:
     necessary for the bots use
     """
 
-    def __init__(self, file_path=DB_FILE):
+    def __init__(self, file_path: Optional[str]=DB_FILE):
         """
         Constructs a new database instance from the given file. If the file cannot be found,
         raises the DBFileNotFound exception
@@ -30,20 +33,20 @@ class Database:
         except:
             raise DBFileNotFound("Database file cannot be found, unable to create/load database")
 
-    def __contains__(self, guild_id):
+    def __contains__(self, guild_id: Union[str, int]) -> bool:
         """
         Params: 'guild_id' - The guild ID to check
         Returns: Whether or not the given guild ID is present
         """
         return str(guild_id) in self.guild_to_info
     
-    def guild_ids(self):
+    def guild_ids(self) -> Set[str]:
         """
         Returns: A set of all guild IDs present within the database
         """
         return self.guild_to_info.keys()
 
-    def _get(self, guild_id):
+    def _get(self, guild_id: Union[int, str]) -> Dict:
         """
         Helper method that returns the guild info for a given guild_id. Note that the id can be
         an int or str
@@ -52,56 +55,56 @@ class Database:
             raise GuildNotFound(f"Guild ID {guild_id} not present in the database")
         return self.guild_to_info.get(str(guild_id))
 
-    def get_admin(self, guild_id):
+    def get_admin(self, guild_id: Union[int, str]) -> str:
         """
         Params: 'guild_id' - The guild ID to get info for
         Returns: The discord user ID for the guild's admin (the user that initialized the bot)
         """
         return self._get(guild_id)['admin']
     
-    def get_channel(self, guild_id):
+    def get_channel(self, guild_id: Union[int, str]) -> int:
         """
         Params: 'guild_id' - The guild ID to get info for
         Returns: The discord channel ID for the backread request channel
         """
         return self._get(guild_id)['channel']
     
-    def get_token(self, guild_id):
+    def get_token(self, guild_id: Union[int, str]) -> str:
         """
         Params: 'guild_id' - The guild ID to get info for
         Returns: The Ed API token for the admin user within the guild
         """
         return self._get(guild_id)['token']
     
-    def get_course(self, guild_id):
+    def get_course(self, guild_id: Union[int, str]) -> str:
         """
         Params: 'guild_id' - The guild ID to get info for
         Returns: The URL for the Ed staff board that contains backread requests
         """
         return self._get(guild_id)['course']
     
-    def get_role(self, guild_id):
+    def get_role(self, guild_id: Union[int, str]) -> int:
         """
         Params: 'guild_id' - The guild ID to get info for
         Returns: The discord role ID that will be pinged when a backreading thread is created
         """
         return self._get(guild_id)['role']
 
-    def get_approval(self, guild_id):
+    def get_approval(self, guild_id: Union[int, str]) -> bool:
         """
         Params: 'guild_id' - The guild ID to get info for
         Returns: Whether or not approval is required before pushing repsonses to Ed
         """
         return self._get(guild_id)['approval']
     
-    def get_threads(self, guild_id):
+    def get_threads(self, guild_id: Union[int, str]) -> Set[int]:
         """
         Params: 'guild_id' - The guild ID to get info for
         Returns: A set of all Ed thread IDs that have already been imported into discord
         """
         return self._get(guild_id)['threads']
 
-    def register(self, guild_id, guild_info):
+    def register(self, guild_id: Union[int, str], guild_info: Dict) -> None:
         """
         Registers a guild with the necessary information required for the bot
         
@@ -111,7 +114,7 @@ class Database:
         self.guild_to_info[str(guild_id)] = guild_info
         self.save()
     
-    def delete(self, guild_id):
+    def delete(self, guild_id: Union[int, str]) -> None:
         """
         Removes all guild information for a registered with the bot
         
@@ -120,7 +123,7 @@ class Database:
         del self.guild_to_info[str(guild_id)]
         self.save()
 
-    def remove_thread(self, guild_id, ed_id):
+    def remove_thread(self, guild_id: Union[int, str], ed_id: Union[int, str]) -> None:
         """
         Removes a thread from the set of imported threads within the database
         
@@ -130,7 +133,7 @@ class Database:
         self.get_threads(guild_id).pop(str(ed_id))
         self.save()
     
-    def add_thread(self, guild_id, ed_id, discord_id):
+    def add_thread(self, guild_id: Union[int, str], ed_id: Union[int, str], discord_id: Union[int, str]):
         """
         Adds a thread from the set of imported threads within the database
         
@@ -141,7 +144,7 @@ class Database:
         self.get_threads(guild_id)[str(ed_id)] = int(discord_id)
         self.save()
     
-    def save(self):
+    def save(self) -> None:
         """
         Saves current information to the file the database was created with. If the file
         cannot be found, raises the DBFileNotFound exception
@@ -153,7 +156,7 @@ class Database:
 
 class GuildInfo:
     @staticmethod
-    def create(admin, channel, token, course, role, approval):
+    def create(admin: str, channel: str, token: str, course: str, role: str, approval: bool) -> Dict:
         return {
             'admin': admin,
             'channel': channel,

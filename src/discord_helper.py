@@ -5,6 +5,9 @@ import math
 import requests
 import datetime
 
+from typing import (
+    Union, Callable, Tuple, Dict, Optional, List, Any
+)
 from utils import (
     send_message, repeat_request, dm_check, correct_user_check, y_n_emoji
 )
@@ -15,6 +18,7 @@ from exceptions import (
     TimeoutError, InvalidResponse
 )
 
+from database import Database
 from ed_helper import EdHelper
 from database import GuildInfo
 
@@ -26,7 +30,7 @@ class DiscordRegex:
 
 class DiscordHelper:
     @staticmethod
-    def get_attachment(url):
+    def get_attachment(url: str) -> Union[None, str]:
         """
         Params: 'url' - The url corresponding to a discord attachment
         Returns: The discord attachment for the given attachment url
@@ -34,7 +38,7 @@ class DiscordHelper:
         return requests.get(url).content.decode('utf-8') if url else None
 
     @staticmethod
-    async def create_channel(guild, name, overwrites):
+    async def create_channel(guild: Any, name: str, overwrites: Any) -> int:
         """
         Params: 'guild' - The guild in which to create a channel
                 'name' - The channel name
@@ -44,7 +48,7 @@ class DiscordHelper:
         return (await guild.create_text_channel(name, overwrites=overwrites)).id
     
     @staticmethod
-    async def create_thread(channel, starting_message, thread_name):
+    async def create_thread(channel: Any, starting_message: str, thread_name: str):
         """
         Params: 'channel' - The channel in which to create the thread
                 'starting_message' - The starting message to created the thread off of
@@ -55,7 +59,7 @@ class DiscordHelper:
         return await message.create_thread(name=thread_name)
 
     @staticmethod
-    def get_role(guild, role_id):
+    def get_role(guild: Any, role_id: int):
         """
         Params: 'guild' - The guild in which the role is
                 'role_id' - The role ID to get
@@ -64,7 +68,7 @@ class DiscordHelper:
         return discord.utils.get(guild.roles, id=role_id)
     
     @staticmethod
-    def get_thread(guild, thread_id):
+    def get_thread(guild: Any, thread_id: int):
         """
         Params: 'guild' - The guild in which the role is
                 'thread_id' - The thread ID to get
@@ -73,7 +77,7 @@ class DiscordHelper:
         return discord.utils.get(guild.threads, id=thread_id)
     
     @staticmethod
-    async def resolve_thread(bot, database, guild_id, ed_thread_id, final_message):
+    async def resolve_thread(bot: Any, database: Database, guild_id: int, ed_thread_id: int, final_message: str):
         """
         Resolves the given thread, sending a final message and removing it from the database
 
@@ -93,7 +97,7 @@ class DiscordHelper:
         database.remove_thread(guild_id, ed_thread_id)
 
     @staticmethod
-    async def _get_token(ctx, bot, respond_dm):
+    async def _get_token(ctx: Any, bot: Any, respond_dm: Callable[[str], None]) -> Tuple[str, Dict]:
         """
         Gets the users Ed API token via repeat request. Raises TimeoutError if the user request times out
 
@@ -119,7 +123,7 @@ class DiscordHelper:
             raise TimeoutError
     
     @staticmethod
-    async def _get_course(ctx, bot, respond_public_channel, ed_helper):
+    async def _get_course(ctx: Any, bot: Any, respond_public_channel: Callable[[str], None], ed_helper: EdHelper) -> Tuple[str, Dict]:
         """
         Gets the appropriate Ed staff course URL via repeat request. Raises TimeoutError if the user request
         times out
@@ -150,7 +154,7 @@ class DiscordHelper:
                 respond_public_channel("Then please enter the correct link 💅")
     
     @staticmethod
-    async def _get_role(ctx, bot, respond_public_channel):
+    async def _get_role(ctx: Any, bot: Any, respond_public_channel: Callable[[str], None]) -> Tuple[str, Dict]:
         """
         Gets the backreading role to ping via repeat request. Raises TimeoutError if the user request times out
 
@@ -177,7 +181,7 @@ class DiscordHelper:
         return role_name, role
 
     @staticmethod
-    async def setup_bot(ctx, database, bot):
+    async def setup_bot(ctx: Any, database: Database, bot) -> None:
         """
         Sets up the bot, gather necessary information from the user and storing it with the bot's database
 
@@ -187,13 +191,13 @@ class DiscordHelper:
         """
         user_id = ctx.author.id
         requester = discord.utils.get(ctx.guild.members, id=user_id)
-        async def respond_dm(message):
+        async def respond_dm(message: str):
             """
             Sends 'message' to the dm of the user that originated the request
             """
             return (await send_message(requester, message))
 
-        async def respond_public_channel(message):
+        async def respond_public_channel(message: str):
             """
             Sends 'message' to the same channel as the original message was sent in
             """
@@ -246,7 +250,7 @@ class DiscordHelper:
             respond_public_channel("Request timed out")
     
     @staticmethod
-    async def stop_bot(ctx, database):
+    async def stop_bot(ctx: Any, database: Database) -> None:
         """
         Stops the bot from running on the on the server where the ctx was sent
 
@@ -257,7 +261,7 @@ class DiscordHelper:
         await send_message(ctx.channel, "Backreading bot stopped")
     
     @staticmethod
-    async def push_ed_response(ctx, database, bot, thread):
+    async def push_ed_response(ctx: Any, database: Database, bot, thread) -> None:
         """
         Pushes a grading question response from discord to Ed
 
@@ -289,7 +293,7 @@ class DiscordHelper:
         await DiscordHelper.resolve_thread(bot, database, ctx.guild.id, course_thread_ids[1], "Pushed to Ed!")
 
     @staticmethod
-    def _format_backreading_embed(thread, course_id, simple=False):
+    def _format_backreading_embed(thread: Any, course_id: int, simple: Optional[bool]=False):
         """
         Creates and formats a discord embed that contains relevant information on backread requests
 
@@ -312,7 +316,7 @@ class DiscordHelper:
             return embed
     
     @staticmethod
-    def _format_fixes_embed(spreadsheet, fixes, slide_title):
+    def _format_fixes_embed(spreadsheet: Dict[str, str], fixes: Dict[str, List[Tuple[str, str]]], slide_title: str):
         """
         Creates and formats a discord embed that contains relevant information on inconsistently graded submissions
 
@@ -336,7 +340,7 @@ class DiscordHelper:
         return embeds
     
     @staticmethod
-    def _format_ungraded_embed(key_to_ungraded, slide_title):
+    def _format_ungraded_embed(key_to_ungraded: Dict[str, int], slide_title: str):
         """
         Creates and formats a discord embed that contains relevant information on ungraded submissions
 
@@ -356,7 +360,7 @@ class DiscordHelper:
         return embeds
 
     @staticmethod
-    async def refresh_threads(guild_id, database, bot):
+    async def refresh_threads(guild_id: Any, database: Database, bot: Any):
         """
         Refreshes backreading threads for the given guild
 
@@ -370,8 +374,6 @@ class DiscordHelper:
 
         today = datetime.datetime.now(datetime.timezone.utc)
         delay_delta = datetime.timedelta(minutes=PULL_DELAY)
-
-        
 
         ed_helper = EdHelper(database.get_token(guild_id))
         ed_threads = ed_helper.get_threads(database.get_course(guild_id))
