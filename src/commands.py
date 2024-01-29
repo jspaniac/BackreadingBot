@@ -3,15 +3,15 @@ import asyncio
 import argparse
 import datetime
 
-from src.ed_helper import EdHelper
-from src.consistency_checker import ConsistencyChecker
-from src.utils import (
+from ed_helper import EdHelper
+from consistency_checker import ConsistencyChecker
+from utils import (
     progress_bar
 )
-from src.exceptions import (
+from exceptions import (
     MissingArgument, InvalidArgument
 )
-from src.constants import TEMP_DIR
+from constants import TEMP_DIR
 
 CHOICES = ['consistency', 'ungraded']
 
@@ -79,12 +79,10 @@ async def consistency(args):
 
     print("\nRunning consistency checker:")
     print(progress_bar(0, 1), end='\r', flush=True)
-    update_progress = (
-        lambda curr, total: print(
-            progress_bar(curr, total), end='\n' if curr == total
-            else '\r', flush=True
-        )
-    )
+    
+    async def update_progress(curr, total):
+        print(progress_bar(curr, total), end='\n' if curr == total
+              else '\r', flush=True)
 
     fixes, not_present, total_issues = (
         await ConsistencyChecker.check_consistency(
@@ -130,12 +128,10 @@ async def ungraded(args):
     ed_helper = EdHelper(args.ed_token)
     print("\nRunning grade completion checker:")
     print(progress_bar(0, 1), end='\r', flush=True)
-    update_progress = (
-        lambda curr, total: print(
-            progress_bar(curr, total), end='\n' if curr == total
-            else '\r', flush=True
-        )
-    )
+
+    async def update_progress(curr, total):
+        print(progress_bar(curr, total), end='\n' if curr == total
+              else '\r', flush=True)
 
     key_to_ungraded, not_present, total_ungraded = (
         await ConsistencyChecker.check_ungraded(

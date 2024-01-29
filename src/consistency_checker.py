@@ -7,14 +7,14 @@ import logging
 from typing import (
     List, Dict, Optional, Callable, Tuple, Union
 )
-from src.utils import (
+from utils import (
     write_csv, convert_csv_to_html
 )
-from src.constants import (
+from constants import (
     TEMP_DIR, PROGRESS_UPDATE_MULTIPLE, ASSIGNMENT_GRACE_MINUTES, LOGGING_FILE
 )
 
-from src.ed_helper import EdHelper
+from ed_helper import EdHelper
 
 logging.basicConfig(filename=LOGGING_FILE, encoding='utf-8',
                     level=logging.INFO)
@@ -311,8 +311,8 @@ class ConsistencyChecker:
                 continue
 
             if count % PROGRESS_UPDATE_MULTIPLE == 0:
-                if progress_bar_update:
-                    await progress_bar_update(count, len(users))
+                if progress_bar_update is not None:
+                    _ = await progress_bar_update(count, len(users))
                 logging.info(f"{count} / {len(users)} Completed")
             count += 1
 

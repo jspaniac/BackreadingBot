@@ -8,19 +8,19 @@ import datetime
 from typing import (
     Union, Callable, Tuple, Dict, Optional, List, Any
 )
-from src.utils import (
+from utils import (
     send_message, repeat_request, dm_check, correct_user_check, y_n_emoji
 )
-from src.constants import (
+from constants import (
     TIMEOUT, LOGGING_FILE, PULL_DELAY, THREAD_LINK, DISCORD_MAX_EMBED_FIELDS
 )
-from src.exceptions import (
+from exceptions import (
     TimeoutError, InvalidResponse
 )
 
-from src.database import Database
-from src.ed_helper import EdHelper
-from src.database import GuildInfo
+from database import Database
+from ed_helper import EdHelper
+from database import GuildInfo
 
 logging.basicConfig(filename=LOGGING_FILE, encoding='utf-8',
                     level=logging.INFO)

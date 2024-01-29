@@ -6,10 +6,10 @@ import datetime
 from typing import (
     Optional, List, Dict, Union, Any
 )
-from src.constants import (
+from constants import (
     LOGGING_FILE
 )
-from src.exceptions import (
+from exceptions import (
     InvalidResponse, InvalidEdToken
 )
 

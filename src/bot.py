@@ -158,11 +158,11 @@ async def gr_check(ctx, submission_link):
             # Converting requires a lot of API calls which takes much longer
             progress_bar_message = await send_message(ctx.channel,
                                                       progress_bar(0, 1))
-            update_progress = (
-                lambda curr, total: await progress_bar_message.edit(
+
+            async def update_progress(curr, total):  # noqa: F811
+                await progress_bar_message.edit(
                     embed=discord.Embed(description=progress_bar(curr, total))
                 )
-            )
 
         key_to_ungraded, total_ungraded = (
             await ConsistencyChecker.check_ungraded(
@@ -216,11 +216,12 @@ async def gr_consistency(ctx, submission_link, template: bool = False):
 
         progress_bar_message = await send_message(ctx.channel,
                                                   progress_bar(0, 1))
-        update_progress = (
-            lambda curr, total: await progress_bar_message.edit(
+
+        async def update_progress(curr, total):
+            await progress_bar_message.edit(
                 embed=discord.Embed(description=progress_bar(curr, total))
             )
-        )
+
         # TODO: shard blocking issue
         fixes, not_present, total_issues = (
             await ConsistencyChecker.check_consistency(
