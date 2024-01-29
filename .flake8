@@ -1,0 +1,10 @@
+[flake8]
+exclude =
+    .git,
+    __pycache__,
+    venv,
+    src/constants.py,
+    src/html_constants.py,
+    store,
+    temp,
+    tests/testing_constants.py,

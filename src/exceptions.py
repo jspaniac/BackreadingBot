@@ -4,11 +4,13 @@ class TimeoutError(Exception):
     """
     pass
 
+
 class InvalidResponse(Exception):
     """
     An exception for when users provide invalid responses to requests
     """
     pass
+
 
 class DBFileNotFound(Exception):
     """
@@ -16,11 +18,13 @@ class DBFileNotFound(Exception):
     """
     pass
 
+
 class GuildNotFound(Exception):
     """
     An exception for when the guild doesn't exist within the bot database
     """
     pass
+
 
 class InvalidEdToken(Exception):
     """
@@ -28,14 +32,18 @@ class InvalidEdToken(Exception):
     """
     pass
 
+
 class MissingArgument(Exception):
     """
-    An exception for when the client hasn't provided an argument when running commands locally
+    An exception for when the client hasn't provided an argument when running
+    commands locally
     """
     pass
 
+
 class InvalidArgument(Exception):
     """
-    An exception for when the client has provided a bad argument that isn't valid when running commands locally
+    An exception for when the client has provided a bad argument that isn't
+    valid when running commands locally
     """
     pass
