@@ -21,8 +21,8 @@ Currently, each of the listed requirements individually may/may not be actually 
 ### Bash
 Give the bash executables permissions to run
 ```bash
-chmod +x keep-running.sh
-chmod +x kill.sh
+chmod +x bash/keep-running.sh
+chmod +x bash/kill.sh
 ```
 
 ### Discord & API Tokens
@@ -45,13 +45,13 @@ If the command returns non-empty results, the following scripts should not be us
 
 To start running the bot execute the following terminal command:
 ```bash
-./keep-running.sh &
+./bash/keep-running.sh &
 ```
 This will create a wrapper infinitely-looping process that consistently checks whether or not the bot has crashed (this frequently happens to me due to socket-related / internet connectivity issues). If it has, it relaunches so the bot is always up.
 
 If you want to stop these infinitely looping processes (the `keep-running` script and the actual running bot), execute the follwoing:
 ```bash
-./kill.sh
+./bash/kill.sh
 ```
 This will stop the bot and related wrapper process.
 
@@ -112,18 +112,20 @@ Local execution is supported for the checking ungraded and consistency commands 
 
 Below is an example of a consistency check run via this method (with the Ed API token removed):
 ```bash
-python3.9 src/commands.py -c consistency -e ED_TOKEN -l 'https://edstem.org/us/courses/50191/lessons/87264/attempts?email=jspaniac@uw.edu&slide=478586' -t -f
+python3.9 commands.py -c consistency -e ED_TOKEN -l 'https://edstem.org/us/courses/50191/lessons/87264/attempts?email=jspaniac@uw.edu&slide=478586' -t -f
 ```
 The `-c` flag is for which command you'd like to run, `-e` is for your Ed API token, `-l` is for the link to the final submission slide for the assignment, `-t` indicates that we want to check against the overall grading template, and `-f` shows we want to have our results be FERPA compliant (not including student emails).
 
 # Development
 ## Directory Layout
+- `bash`
+    - Where the bash scripts are located
+    - `keep-running.sh`
+        - Allows the bot to relaunch itself on crash
+    - `kill.sh`
+        - Kills both the currently running bot and `keep-running.sh`
 - `src`
     - Where the actual library implementations exist.
-    - `bot.py`
-        - Running the discord bot itself and defining commands
-    - `commands.py`
-        - Houses local implementations of the bot commands
     - `consistency_checker.py`
         - Running consistency checks:
             - Making sure selected dropdown matches value in overall feedback box
@@ -155,3 +157,9 @@ The `-c` flag is for which command you'd like to run, `-e` is for your Ed API to
         - Where the active logs are stored
 - `temp`
     - Used by the bot when creating .csv / .html files for temporary storage before uploading to discord.
+- `tests`
+    - Where the 
+- `bot.py`
+    - Launch this to run the python bot
+- `commands.py`
+    - Local versions of the bot commands

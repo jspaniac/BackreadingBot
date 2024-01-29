@@ -7,14 +7,14 @@ import logging
 from typing import (
     List, Dict, Optional, Callable, Tuple, Union
 )
-from utils import (
+from src.utils import (
     write_csv, convert_csv_to_html
 )
-from constants import (
+from src.constants import (
     TEMP_DIR, PROGRESS_UPDATE_MULTIPLE, ASSIGNMENT_GRACE_MINUTES, LOGGING_FILE
 )
 
-from ed_helper import EdHelper
+from src.ed_helper import EdHelper
 
 logging.basicConfig(filename=LOGGING_FILE, encoding='utf-8',
                     level=logging.INFO)

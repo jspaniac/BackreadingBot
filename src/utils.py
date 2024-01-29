@@ -5,13 +5,13 @@ import functools
 from typing import (
     List, Callable, Tuple, Any, Dict, Optional, Set
 )
-from exceptions import (
+from src.exceptions import (
     TimeoutError, InvalidResponse
 )
-from constants import (
+from src.constants import (
     GREEN_CHECK, RED_X, EMPTY_SQUARE, FULL_SQUARE, BAR_SIZE
 )
-from html_constants import (
+from src.html_constants import (
     HTML_ROW, HTML_HREF, HTML_TABLE, HTML_HEADER, HTML_STYLE
 )
 
