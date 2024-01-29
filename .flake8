@@ -8,3 +8,5 @@ exclude =
     store,
     temp,
     tests/testing_constants.py,
+    build,
+    dist,
