@@ -137,7 +137,7 @@ class Database:
     def get_threads(
         self,
         guild_id: Union[int, str]
-    ) -> Set[int]:
+    ) -> Dict[str, int]:
         """
         Params: 'guild_id' - The guild ID to get info for
         Returns: A set of all Ed thread IDs that have already been imported
