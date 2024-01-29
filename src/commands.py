@@ -2,15 +2,15 @@ import os
 import asyncio
 import argparse
 import datetime
-from ed_helper import EdHelper
-from consistency_checker import ConsistencyChecker
-from utils import (
+from src.ed_helper import EdHelper
+from src.consistency_checker import ConsistencyChecker
+from src.utils import (
     progress_bar
 )
-from exceptions import (
+from src.exceptions import (
     MissingArgument, InvalidArgument
 )
-from constants import TEMP_DIR
+from src.constants import TEMP_DIR
 
 CHOICES = ['consistency', 'ungraded']
 

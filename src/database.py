@@ -4,10 +4,10 @@ from typing import (
     Optional, Union, Set, Dict
 )
 
-from constants import (
+from src.constants import (
     LOGGING_FILE, DB_FILE
 )
-from exceptions import (
+from src.exceptions import (
     GuildNotFound, DBFileNotFound
 )
 
@@ -133,7 +133,7 @@ class Database:
         self.get_threads(guild_id).pop(str(ed_id))
         self.save()
     
-    def add_thread(self, guild_id: Union[int, str], ed_id: Union[int, str], discord_id: Union[int, str]):
+    def add_thread(self, guild_id: Union[int, str], ed_id: Union[int, str], discord_id: Union[int, str]) -> None:
         """
         Adds a thread from the set of imported threads within the database
         
