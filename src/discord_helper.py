@@ -528,7 +528,7 @@ class DiscordHelper:
         ed_threads = ed_helper.get_threads(database.get_course(guild_id))
         server_threads = database.get_threads(guild_id)
 
-        deleted_threads = ({key for key, _ in server_threads.items()} -
+        deleted_threads = ({int(key) for key, _ in server_threads.items()} -
                            {thread['id'] for thread in ed_threads})
         for thread_id in deleted_threads:
             # Thread's been deleted from ed and is still in discord (or in
