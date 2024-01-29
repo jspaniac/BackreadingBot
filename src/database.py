@@ -4,10 +4,10 @@ from typing import (
     Optional, Union, Set, Dict
 )
 
-from src.constants import (
+from constants import (
     LOGGING_FILE, DB_FILE
 )
-from src.exceptions import (
+from exceptions import (
     GuildNotFound, DBFileNotFound
 )
 

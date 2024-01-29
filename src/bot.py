@@ -4,17 +4,17 @@ import discord
 import datetime
 from discord.ext import commands, tasks
 import logging
-from src.constants import (
+from constants import (
     LOGGING_FILE, REFRESH_DELAY, AUTH_FILE, TEMP_DIR
 )
-from src.utils import (
+from utils import (
     send_message, invert_csv, progress_bar
 )
 
-from src.database import Database
-from src.discord_helper import DiscordHelper
-from src.consistency_checker import ConsistencyChecker
-from src.ed_helper import EdHelper
+from database import Database
+from discord_helper import DiscordHelper
+from consistency_checker import ConsistencyChecker
+from ed_helper import EdHelper
 
 logging.basicConfig(filename=LOGGING_FILE, encoding='utf-8',
                     level=logging.INFO)

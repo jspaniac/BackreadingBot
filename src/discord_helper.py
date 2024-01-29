@@ -459,11 +459,6 @@ class DiscordHelper:
                 'slide_title' - The title of the ed assignment slide
         Returns: A properly formatted discord embed
         """
-        if spreadsheet is None:
-            return [discord.Embed(title=slide_title,
-                                  description="Report of students with " +
-                                              "inconsistent feedback (1/1)")]
-
         total_embeds = math.ceil(len(fixes) / DISCORD_MAX_EMBED_FIELDS)
         embeds = [discord.Embed(title=slide_title,
                                 description="Report of students with " +
