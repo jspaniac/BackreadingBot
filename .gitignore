@@ -1,5 +1,8 @@
 .DS_Store
 .vscode/
+backreading_bot.egg-info/
+build/
+dist/
 /store/
 /temp/
 /src/__pycache__/

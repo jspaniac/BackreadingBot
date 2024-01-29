@@ -1,4 +1,5 @@
 # BackreadingBot
+This script library allows CSE 12x/14x TAs perform various grading assistance checks on Ed assignments
 
 ## Setup
 There is a non-trivial amount of setup required to start executing this discord bot on your local machine, which has been segmented into the 3 primary parts below.
