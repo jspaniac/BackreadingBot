@@ -11,7 +11,8 @@ from src.exceptions import (
 )
 from src.constants import TEMP_DIR
 
-CHOICES = ['consistency', 'ungraded']
+CHOICES = ['consistency', 'ungraded', 'check_feedback_boxes']
+PROGRESS_INCREMENT = 50
 
 
 async def main():
@@ -53,6 +54,10 @@ async def main():
         dest='ferpa', action='store_true'
     )
     parser.set_defaults(ferpa=False)
+    parser.add_argument(
+        '--query', '-q',
+        help="Search query term"
+    )
 
     args = parser.parse_args()
     await globals()[args.command](args)
@@ -150,6 +155,57 @@ async def ungraded(args):
               f"spreadsheet: {not_present}")
         print("Refresh grading roster!")
     print()
+
+
+async def check_feedback_boxes(args):
+    if args.ed_token is None:
+        raise MissingArgument("Ed token required to check feedback boxes")
+    if args.assignment_link is None:
+        raise MissingArgument("Assignment link required to check feedback " +
+                              "boxes")
+    if args.query is None:
+        raise MissingArgument("Query to search for required when checking " +
+                              "feedback boxes")
+    if not EdHelper.valid_token(args.ed_token):
+        raise InvalidArgument("Ed token is invalid")
+    if not EdHelper.valid_assignment_url(args.assignment_link):
+        raise InvalidArgument("Assignment link is invalid")
+
+    args.query = args.query.lower()
+    ed_helper = EdHelper(args.ed_token)
+    ids = EdHelper.get_ids(args.assignment_link)
+    results = ed_helper.get_attempt_results(ids[1])
+
+    print()
+    print(f"Running check for: {args.assignment_link}")
+    print(progress_bar(0, 1), end='\r', flush=True)
+    found, i = [], 0
+    for result in results:
+        if i % PROGRESS_INCREMENT == 0:
+            print(progress_bar(i, len(results)), end='\r', flush=True)
+        i += 1
+
+        user_id = result['user_id']
+        email = result['email']
+        attempt_id = ed_helper.get_attempts(ids[1], user_id)['final_id']
+        response = ed_helper.get_quiz_responses(attempt_id, ids[2])[0]
+
+        if (response is not None and
+                response['lesson_mark'] is not None and
+                response['lesson_mark']['comment'] is not None):
+            if args.query in response['lesson_mark']['comment'].lower():
+                found.append(ConsistencyChecker._get_link(
+                    ids, user_id, email, None, True, False
+                ))
+
+    print(progress_bar(1, 1), end='\r', flush=True)
+    print()
+    print(f"Found students with query '{args.query}':")
+    for link in found:
+        print(f"\t{link}")
+    print()
+    print(f"Total number of occurrences found: {len(found)}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

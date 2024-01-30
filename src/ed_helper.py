@@ -293,9 +293,7 @@ class EdHelper:
         Returns: A dict containing relevant submission feedback information
                  for the user
         """
-        attempt_response = get_response(EdConstants.ED_ATTTEMPT_REQUEST.format(
-            lesson_id=lesson_id, user_id=user_id
-        ), self.token, self.retries)
+        attempt_response = self.get_attempts(lesson_id, user_id)
         if "final_id" not in attempt_response:
             return None
         final_id = attempt_response['final_id']
@@ -343,6 +341,21 @@ class EdHelper:
             }
         }]
 
+    def get_attempts(
+        self,
+        lesson_id: int,
+        user_id: int
+    ) -> Dict:
+        """
+        Returns the attempts for a specific user within a specific lesson
+
+        Params: 'lesson_id' - The lesson ID to get attempts for
+                'user_id' - The user to get attempts for
+        """
+        return get_response(EdConstants.ED_ATTTEMPT_REQUEST.format(
+            lesson_id=lesson_id, user_id=user_id
+        ), self.token, self.retries)
+
     def get_attempt_user(
         self,
         user: Dict,
@@ -367,9 +380,7 @@ class EdHelper:
             'feedback_status': 'incomplete'
         }
 
-        attempt_response = get_response(EdConstants.ED_ATTTEMPT_REQUEST.format(
-            lesson_id=lesson_id, user_id=user['user_id']
-        ), self.token, self.retries)
+        attempt_response = self.get_attempts(lesson_id, user['user_id'])
         if "final_id" not in attempt_response:
             return ret
         final_id = attempt_response['final_id']
