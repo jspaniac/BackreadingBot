@@ -1,11 +1,14 @@
 import os
 import asyncio
+import re
 import argparse
 import datetime
 
 from src.ed_helper import EdHelper
 from src.consistency_checker import ConsistencyChecker
-from src.utils import progress_bar
+from src.utils import (
+    progress_bar, invert_csv
+)
 from src.exceptions import (
     MissingArgument, InvalidArgument
 )
@@ -75,7 +78,7 @@ async def consistency(args):
 
     spreadsheet = None
     if args.scrubbed_spreadsheet is not None:
-        spreadsheet = open(args.scrubbed_spreadsheet)
+        spreadsheet = invert_csv(open(args.scrubbed_spreadsheet).read())
 
     ed_helper = EdHelper(args.ed_token)
     file_name = os.path.join(TEMP_DIR, f'user-{datetime.datetime.now()}')
@@ -106,7 +109,8 @@ async def consistency(args):
                 print(f"\t\t{issue}")
     if len(not_present) > 0:
         print()
-        print("Student submissions not present in grading spreadsheet:")
+        print("Student submissions not present in grading spreadsheet: "
+              f"({len(not_present)})")
         for link in not_present:
             print(f"\t{link}")
     print()
@@ -193,7 +197,8 @@ async def check_feedback_boxes(args):
         if (response is not None and
                 response['lesson_mark'] is not None and
                 response['lesson_mark']['comment'] is not None):
-            if args.query in response['lesson_mark']['comment'].lower():
+            if re.search(args.query,
+                         response['lesson_mark']['comment'].lower()):
                 found.append(ConsistencyChecker._get_link(
                     ids, user_id, email, None, True, False
                 ))
